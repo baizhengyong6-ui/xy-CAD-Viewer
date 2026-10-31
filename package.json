@@ -1,0 +1,41 @@
+{
+  "name": "lantu-viewer",
+  "private": true,
+  "version": "0.1.0",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/copy-runtime.mjs",
+    "prebuild": "node scripts/copy-runtime.mjs",
+    "dev": "vite --host 127.0.0.1 --port 43123 --strictPort",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 43123 --strictPort",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "samples": "python3 scripts/generate_samples.py"
+  },
+  "dependencies": {
+    "@mlightcad/cad-simple-viewer": "1.7.6",
+    "@mlightcad/data-model": "1.15.18",
+    "@mlightcad/libredwg-converter": "3.15.18",
+    "@mlightcad/mtext-parser": "1.5.5",
+    "@mlightcad/mtext-renderer": "0.13.4",
+    "@mlightcad/three-renderer": "1.7.6",
+    "@velipso/polybool": "^1.1.1",
+    "jspdf": "^4.2.1",
+    "lodash-es": "4.17.21",
+    "three": "0.172.0",
+    "vue": "^3.5.44",
+    "vue-i18n": "^11.4.16"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^24.19.2",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "@vue/tsconfig": "^0.9.1",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.5",
+    "vitest": "^4.0.18",
+    "vue-tsc": "^3.3.13"
+  }
+}

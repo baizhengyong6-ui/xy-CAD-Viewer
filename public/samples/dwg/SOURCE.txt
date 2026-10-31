@@ -1,0 +1,2 @@
+libredwg-line-r2004.dwg 和 libredwg-text-r2004.dwg 来自 GNU LibreDWG 测试数据 test/test-data/2004/（GPL-3.0-or-later）。
+measure-fixture.dwg 与 plan-zh.dwg 由本仓库 DXF 经 LibreDWG dxf2dwg 写成 R2000。
