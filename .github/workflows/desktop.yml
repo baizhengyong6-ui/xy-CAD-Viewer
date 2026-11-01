@@ -1,24 +1,45 @@
-# Builds desktop installers. macOS must run on a macOS runner (WKWebView);
-# this Linux agent cannot produce a .dmg. Windows NSIS can also be cross-built
-# locally with cargo-xwin; MSI needs WiX on Windows, which this job provides.
+# GitHub-hosted runners only. This Linux agent cannot build a macOS DMG or a
+# WiX MSI; those jobs run on macos-latest and windows-latest.
+# Unsigned builds. macOS uses ad-hoc signing so Apple Silicon downloads are
+# less likely to be marked damaged. Real Developer ID / Authenticode signing
+# is documented in the README and is not configured here.
 name: Desktop installers
 
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -26,22 +47,54 @@ jobs:
           projectPath: .
           tauriScript: npx tauri
           args: --bundles nsis,msi
+          retryAttempts: 5
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: "XinyaoCADViewer-windows"
+          releaseName: "鑫垚CAD看图 v__VERSION__"
+          releaseBody: |
+            未签名安装包。Windows 为 NSIS（.exe）和 MSI，macOS 为 universal DMG。
+            Unsigned installers. Windows NSIS and MSI, macOS universal DMG.
+            License: GPL-3.0-only (includes GNU LibreDWG).
+          releaseDraft: false
+          prerelease: false
 
   macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Ad-hoc signature. Replace with a Developer ID identity to notarize.
+          APPLE_SIGNING_IDENTITY: "-"
         with:
           projectPath: .
           tauriScript: npx tauri
-          args: --target universal-apple-darwin --bundles dmg,app
+          args: --target universal-apple-darwin --bundles dmg
+          retryAttempts: 5
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: "XinyaoCADViewer-macos"
+          releaseName: "鑫垚CAD看图 v__VERSION__"
+          releaseBody: |
+            未签名安装包。Windows 为 NSIS（.exe）和 MSI，macOS 为 universal DMG。
+            Unsigned installers. Windows NSIS and MSI, macOS universal DMG.
+            License: GPL-3.0-only (includes GNU LibreDWG).
+          releaseDraft: false
+          prerelease: false

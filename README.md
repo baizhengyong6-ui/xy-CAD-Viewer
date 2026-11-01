@@ -4,6 +4,17 @@
 
 应用不依赖服务器。界面默认简体中文，文案在 `src/i18n`，可以切到英文。窗口标题是「鑫垚CAD看图」。安装包和可执行文件名用 ASCII `XinyaoCADViewer`，避免 Windows 资源编译器拒绝非 ASCII 版本信息。
 
+源码仓库：[github.com/baizhengyong6-ui/xy-CAD-Viewer](https://github.com/baizhengyong6-ui/xy-CAD-Viewer)。
+
+## 下载
+
+桌面安装包在 [Releases](https://github.com/baizhengyong6-ui/xy-CAD-Viewer/releases)。推送 `v*` 标签（例如 `v0.2.0`）后，GitHub Actions 会构建并挂到该版本：
+
+- macOS：universal DMG（Apple Silicon 与 Intel）
+- Windows：NSIS 安装程序（`.exe`）和 MSI
+
+这些包目前未签名。`main` 每次推送也会构建，安装包在该次 Actions 运行的 Artifacts 里，不会自动发 Release。许可证是 GPL-3.0，仓库根目录的 `LICENSE` 会打进 Windows 安装向导。
+
 ## 功能
 
 - 打开本地 `.dwg` / `.dxf`：文件选择、拖放，以及写在 IndexedDB 里的最近文件。
