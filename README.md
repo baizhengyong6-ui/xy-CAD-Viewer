@@ -40,7 +40,7 @@ npm run dev
 
 ## 桌面版
 
-源码在 `src-tauri/`。需要 Rust 1.77+、以及各平台的 WebView 依赖（Linux 是 WebKitGTK 4.1，Windows 是 WebView2，macOS 是系统 WKWebView）。
+源码在 `src-tauri/`。需要 Rust 1.77+、以及各平台的 WebView 依赖（Linux 是 WebKitGTK 4.1，Windows 是 WebView2，macOS 是系统 WKWebView）。LibreDWG 的 wasm 不进 git，`npm install` 之后由构建脚本复制；仓库里最大的文件是约 2 MB 的字体子集，不需要 Git LFS。
 
 ```bash
 npm install
