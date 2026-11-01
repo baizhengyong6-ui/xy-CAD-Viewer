@@ -3,6 +3,8 @@ import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { SAMPLE_FILES, useCadApp, type MeasureRow } from './session/useCadApp'
 import { fetchAppInfo, isDesktopShell, type DesktopInfo } from './shell/desktop'
+import { isMobileShell } from './shell/mobile'
+import { APP_VERSION } from './version'
 import type { PropertyRow } from './viewer/properties'
 
 const { t, locale } = useI18n()
@@ -13,6 +15,7 @@ const scaleDraft = ref('1')
 const showAbout = ref(false)
 const about = ref<DesktopInfo | null>(null)
 const cad = useCadApp()
+const appVersion = APP_VERSION
 
 function onKeyDown(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return
@@ -25,6 +28,7 @@ function onKeyDown(event: KeyboardEvent): void {
 
 function requestOpen(): void {
   if (isDesktopShell()) void cad.openNative()
+  else if (isMobileShell()) void cad.openMobile()
   else fileInput.value?.click()
 }
 
@@ -379,7 +383,7 @@ function measureKind(row: MeasureRow): string {
     <div v-if="showAbout" class="modal" @click.self="showAbout = false">
       <div class="sheet" role="dialog" data-testid="about-dialog">
         <h2>{{ about?.name || t('app.name') }}</h2>
-        <p>{{ t('about.version', { version: about?.version || '0.2.0' }) }}</p>
+        <p>{{ t('about.version', { version: about?.version || appVersion }) }}</p>
         <p>{{ about?.notice || t('about.notice') }}</p>
         <p class="muted">{{ t('about.license', { license: about?.license || 'GPL-3.0-only' }) }}</p>
         <button type="button" class="text" @click="showAbout = false">{{ t('common.close') }}</button>

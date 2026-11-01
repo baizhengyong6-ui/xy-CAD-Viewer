@@ -48,6 +48,18 @@ import {
   readDrawingPath,
   saveExportFile,
 } from '../shell/desktop'
+import { harmonyInboxOpener, startHarmonyInbox } from '../shell/harmony'
+import { formatByteSize, isMemoryFailure, MOBILE_DRAWING_LIMIT_BYTES } from '../shell/limits'
+import {
+  bindAndroidOpens,
+  isAndroidShell,
+  isHarmonyShell,
+  isMobileShell,
+  openAndroidDrawing,
+  requestHarmonyPick,
+  shareMobileFile,
+} from '../shell/mobile'
+import { configureTouchSnap } from '../shell/touchSnap'
 
 export type ToolId = 'select' | 'pan' | 'distance' | 'area' | 'angle' | 'arc'
 
@@ -358,6 +370,10 @@ export function useCadApp() {
       state.error = translate('errors.type')
       return false
     }
+    if (isMobileShell() && data.byteLength > MOBILE_DRAWING_LIMIT_BYTES) {
+      state.error = translate('errors.memory', { size: formatByteSize(data.byteLength) })
+      return false
+    }
     state.opening = true
     state.progress = 0
     state.error = ''
@@ -386,6 +402,7 @@ export function useCadApp() {
       refreshProperties()
       syncViewerUnits()
       const current = view()
+      configureTouchSnap(current)
       if (current) {
         await current.waitUntilIdle(20000)
         current.zoomToFitDrawing()
@@ -403,7 +420,7 @@ export function useCadApp() {
       return true
     } catch (error) {
       console.error(error)
-      state.error = translate('errors.open')
+      state.error = isMemoryFailure(error) ? translate('errors.memoryFail') : translate('errors.open')
       return false
     } finally {
       state.opening = false
@@ -511,6 +528,7 @@ export function useCadApp() {
       notificationCenter: false,
       webworkerFileUrls: { dwgParser, mtextRender: mtext },
     })
+    configureTouchSnap(view())
     AcApSettingManager.instance.osnapModes = acdbOsnapModesToMask([
       AcDbOsnapMode.EndPoint,
       AcDbOsnapMode.MidPoint,
@@ -555,6 +573,26 @@ export function useCadApp() {
         const size = drawing.data.byteLength
         const opened = await openBuffer(drawing.name, drawing.data, true)
         await noteRuntime(`opened ${path} name=${drawing.name} bytes=${size} ok=${opened}`)
+      })
+    }
+    if (isAndroidShell()) {
+      const report = (error: unknown) => {
+        console.error(error)
+        const message = error instanceof Error ? error.message : String(error)
+        if (isMemoryFailure(error) || message.includes('out of memory')) state.error = translate('errors.memoryFail')
+        else if (message.includes('unsupported type')) state.error = translate('errors.type')
+        else state.error = translate('errors.open')
+      }
+      void bindAndroidOpens(report).catch(report)
+    }
+    if (isHarmonyShell()) {
+      startHarmonyInbox(async (id, name) => {
+        try {
+          await harmonyInboxOpener()(id, name)
+        } catch (error) {
+          console.error(error)
+          state.error = isMemoryFailure(error) ? translate('errors.memoryFail') : translate('errors.open')
+        }
       })
     }
     state.recent = await listRecent()
@@ -611,7 +649,9 @@ export function useCadApp() {
       const footer = translate('export.footer', { name: state.fileName })
       const dataUrl = await captureView(current, exportLabels(), footer)
       const stem = state.fileName.replace(/\.(dwg|dxf)$/i, '')
-      if (isDesktopShell()) await saveExportFile('png', dataUrlToBytes(dataUrl), `${stem}.png`)
+      const bytes = dataUrlToBytes(dataUrl)
+      if (isMobileShell()) await shareMobileFile('png', bytes, `${stem}.png`)
+      else if (isDesktopShell()) await saveExportFile('png', bytes, `${stem}.png`)
       else downloadDataUrl(dataUrl, `${stem}.png`)
     } catch (error) {
       console.error(error)
@@ -629,7 +669,9 @@ export function useCadApp() {
       const footer = translate('export.footer', { name: state.fileName })
       const dataUrl = await captureView(current, exportLabels(), footer)
       const stem = state.fileName.replace(/\.(dwg|dxf)$/i, '')
-      if (isDesktopShell()) await saveExportFile('pdf', await renderPdfBytes(dataUrl), `${stem}.pdf`)
+      const bytes = await renderPdfBytes(dataUrl)
+      if (isMobileShell()) await shareMobileFile('pdf', bytes, `${stem}.pdf`)
+      else if (isDesktopShell()) await saveExportFile('pdf', bytes, `${stem}.pdf`)
       else await downloadPdf(dataUrl, `${stem}.pdf`)
     } catch (error) {
       console.error(error)
@@ -646,6 +688,19 @@ export function useCadApp() {
     mount,
     openFile,
     openNative,
+    async openMobile() {
+      try {
+        if (isAndroidShell()) await openAndroidDrawing()
+        else if (isHarmonyShell()) requestHarmonyPick()
+        else state.error = translate('errors.open')
+      } catch (error) {
+        console.error(error)
+        const message = error instanceof Error ? error.message : String(error)
+        if (isMemoryFailure(error) || message.includes('out of memory')) state.error = translate('errors.memoryFail')
+        else if (message.includes('unsupported type')) state.error = translate('errors.type')
+        else state.error = translate('errors.open')
+      }
+    },
     openSample,
     openRecent,
     async removeRecent(id: string) {

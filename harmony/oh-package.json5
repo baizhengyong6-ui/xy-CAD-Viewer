@@ -1,0 +1,8 @@
+{
+  "modelVersion": "5.0.0",
+  "description": "鑫垚CAD看图 HarmonyOS NEXT",
+  "dependencies": {},
+  "devDependencies": {
+    "@ohos/hvigor-ohos-plugin": "5.0.0"
+  }
+}

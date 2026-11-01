@@ -1,0 +1,9 @@
+{
+  "storeFile": "signing/xinyao.p12",
+  "storePassword": "REPLACE_ME",
+  "keyAlias": "xinyao",
+  "keyPassword": "REPLACE_ME",
+  "certpath": "signing/xinyao.cer",
+  "profile": "signing/xinyao.p7b",
+  "signAlg": "SHA256withECDSA"
+}

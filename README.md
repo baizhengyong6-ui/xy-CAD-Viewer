@@ -8,12 +8,15 @@
 
 ## 下载
 
-桌面安装包在 [Releases](https://github.com/baizhengyong6-ui/xy-CAD-Viewer/releases)。推送 `v*` 标签（例如 `v0.2.0`）后，GitHub Actions 会构建并挂到该版本：
+桌面安装包在 [Releases](https://github.com/baizhengyong6-ui/xy-CAD-Viewer/releases)。推送 `v*` 标签（例如 `v0.3.0`）后，GitHub Actions 会构建并挂到该版本：
 
 - macOS：universal DMG（Apple Silicon 与 Intel）
 - Windows：NSIS 安装程序（`.exe`）和 MSI
+- Android：已签名的 release APK（`.aab` 只放在该次 Actions 的 Artifacts 里）
 
-这些包目前未签名。`main` 每次推送也会构建，安装包在该次 Actions 运行的 Artifacts 里，不会自动发 Release。许可证是 GPL-3.0，仓库根目录的 `LICENSE` 会打进 Windows 安装向导。
+这些桌面包目前未签名。Android 的 APK 用仓库里的测试证书签名，才能直接安装；换成你自己的上传密钥见下文。`main` 每次推送也会构建，安装包在该次 Actions 运行的 Artifacts 里，不会自动发 Release。许可证是 GPL-3.0，仓库根目录的 `LICENSE` 会打进 Windows 安装向导。
+
+应用版本号是 `package.json` 的 `version`。它必须和 `src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、Android `versionName`、HarmonyOS `versionName` 一致，否则安装包文件名会和 Git 标签对不上。`npm test` 里的版本检查会盯着这几处。
 
 ## 功能
 
@@ -70,6 +73,77 @@ npm run tauri build -- --runner cargo-xwin --target x86_64-pc-windows-msvc --bun
 
 阶段二测到的安装包和还没在本机跑起来的平台，见 [docs/phase2-report.md](docs/phase2-report.md)。
 
+## Android
+
+壳是 Capacitor 8，工程在 `android/`。应用 id 是 `com.xinyao.cadviewer`，桌面名称是「鑫垚CAD看图」，`minSdk` 是 26（WebView 需要能跑 WebGL2 和 WASM）。页面、worker、LibreDWG wasm 和字体都打进 APK，不访问网络。系统「打开」和「分享」进来的 `content://` 会先复制到应用缓存，再交给 `window.openCadFile`。微信、QQ 和文件管理器经常把 DWG/DXF 标成 `application/octet-stream`，原生层按文件名后缀判断，不是图纸就丢掉。
+
+手机上双指缩放、单指平移。测量时长按约半秒：十字光标在指尖上方，旁边有放大镜，对象捕捉半径比桌面更大。单张图纸超过 96 MB 会提示内存不够，不会硬撑到 WebView 崩溃。PNG 和 PDF 走系统分享面板，可以保存或发给其他应用。
+
+```bash
+npm install
+npm run android:build
+```
+
+产物：
+
+- `android/app/build/outputs/apk/release/app-release.apk`
+- `android/app/build/outputs/bundle/release/app-release.aab`
+
+调试包（模拟器或 `adb install`）用 `cd android && ./gradlew assembleDebug`。
+
+### Android 签名
+
+仓库里的 `android/xinyao-test.keystore` 是公开测试证书，口令和别名都是 `xinyao` / `xinyao-test`。谁都可以用同一把钥匙签出能安装的包，所以不能拿它上架，也不能当成身份。CI 在没有下面这些 Secrets 时用这把钥匙，这样 Release 上的 APK 可以直接安装。
+
+换成自己的上传密钥时，在仓库 Settings → Secrets and variables → Actions 添加：
+
+| Secret | 内容 |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 your-upload.keystore` 的输出 |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore 口令 |
+| `ANDROID_KEY_ALIAS` | 密钥别名 |
+| `ANDROID_KEY_PASSWORD` | 密钥口令 |
+
+设齐之后，`.github/workflows/mobile.yml` 会用这把钥匙签 release APK 和 AAB，不再用测试证书。本地覆盖则设置同名环境变量，`ANDROID_KEYSTORE_PATH` 指向 keystore 文件。
+
+## HarmonyOS NEXT
+
+工程在 `harmony/`，stage 模型，ArkTS。`deviceTypes` 包含 phone、tablet、2in1，窗口里是一块铺满的 ArkWeb。页面从 `https://xinyao.local/` 加载，`WebSchemeHandler` 把这个地址映射到 `resources/rawfile/www`，`.wasm` 用 `application/wasm`，worker 脚本用 `text/javascript`，这样离线也能创建 Worker 和编译 WASM。WebGL2 依赖系统 ArkWeb，工程按这个前提写，没有在真机上核实。
+
+「打开」用 `DocumentViewPicker`，只列出 `.dwg` / `.dxf`。「打开方式」靠 `utd.json5` 里声明的 `com.xinyao.cadviewer.dwg` 和 `.dxf`。字节留在原生侧，页面再 `fetch('https://xinyao.local/inbox/…')` 取走，避免把整张图纸塞进一段 JavaScript 字符串。超过 96 MB 会弹出中文提示。
+
+网页资源不进 git。打包前执行：
+
+```bash
+npm install
+npm run harmony:sync
+```
+
+然后用 DevEco Studio 打开 `harmony/` 目录。
+
+### 签名和安装
+
+HAP 必须用华为开发者证书签名才能装到真机。测试可以在 DevEco 里自动签名，不需要先准备发布证书。
+
+自动签名（真机调试够用）：
+
+1. 安装 DevEco Studio（带 HarmonyOS NEXT SDK 和 hvigor）。
+2. 用华为账号登录。File → Project Structure → Signing Configs，勾选 Automatically generate signature，选一个调试设备。
+3. DevEco 会把证书路径写进 `harmony/build-profile.json5`。不要把生成的 `.p12`、口令提交进仓库。
+4. Run 到手机、平板或 2in1。
+
+自己的发布证书（上架或给别人安装）：
+
+1. 注册华为开发者账号，并完成实名。
+2. 在 AppGallery Connect 创建应用，包名填 `com.xinyao.cadviewer`。
+3. 申请发布证书和 Profile，下载三个文件：密钥库 `.p12`、证书 `.cer`、Profile `.p7b`。
+4. 把三个文件放进 `harmony/signing/`（这个目录里的证书已在 `.gitignore`）。
+5. 复制 `harmony/signing/local.example.json` 为 `harmony/signing/local.json`，填入口令、别名和上面三个文件的相对路径。
+6. 运行 `node scripts/apply-harmony-signing.mjs`。它把 `signingConfigs` 写进 `harmony/build-profile.json5`。
+7. 在 DevEco 里 Build → Build Hap(s)/APP(s)，或在装好 command line tools 的机器上，于 `harmony/` 目录执行 `ohpm install` 然后 `hvigorw assembleHap`。
+
+命令行工具没有随这个仓库下载成功时，不要假设 CI 能打出 HAP。现阶段没有 HarmonyOS 的 GitHub Actions 作业。详情和没在设备上跑过的部分见 [docs/phase3-report.md](docs/phase3-report.md)。
+
 其他命令：
 
 ```bash
@@ -103,7 +177,7 @@ src/
   dwg/active.ts           当前启用哪一个解析器
   measure/math.ts         距离、面积、角度、弧长、单位和比例（有单测）
   viewer/                  特性、PNG/PDF
-  shell/bridge.ts         window.openCadFile / window.lantu
+  shell/                  window.openCadFile；Tauri、Android、HarmonyOS 各自读文件
   i18n/                   zh-CN 与 en
 ```
 
@@ -139,8 +213,8 @@ const client = window.lantu.worldToClient(0, 0) // 图纸坐标 → 视口 CSS �
 ## 路线图
 
 1. **Tauri 2（macOS / Windows）**：桌面壳已接上。还要在真正的 WebView2 和 WKWebView 上跑一遍安装包，并补上签名。
-2. **Capacitor（Android）**：同样的静态资源和 `openCadFile`。用系统文档选择器，而不是再写一套解析。
-3. **HarmonyOS NEXT（手机 / 平板 / PC）**：ArkTS 壳用 ArkWeb 加载这套页面。从沙箱或选择器得到字节后 `runJavaScript` 调 `openCadFile`。
+2. **Capacitor（Android）**：已接上。系统选择器、「打开方式」和分享导出都走 `openCadFile`。发布证书还要换成你自己的上传密钥。
+3. **HarmonyOS NEXT（手机 / 平板 / 2in1）**：ArkTS 工程已能在 DevEco 里打开。ArkWeb 用自定义 scheme 提供 wasm 和 worker。真机签名和运行还要你本机的开发者证书。
 4. **解析器**：复杂或较新的 DWG 可换成商业库，只替换 `src/dwg/active.ts`。
 5. 图纸空间视口、SHX 大字体的字形宽度、以及把测量写回文件，留到后续阶段。
 
