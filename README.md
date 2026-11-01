@@ -1,10 +1,8 @@
-# 览图
+# 鑫垚CAD看图
 
-览图是一个开源（GPL-3.0）的跨平台 CAD 看图核心。第一阶段只交付浏览器里的静态 Web 应用：打开本地 DWG / DXF，平移缩放，开关图层，切换模型与布局，做距离、面积、角度和弧长测量，点选图元看特性，并把当前视图导出成带标注的 PNG 或 PDF。
+鑫垚CAD看图（Xinyao CAD Viewer）是一个开源（GPL-3.0）的跨平台 CAD 看图程序。浏览器里是同一套静态 Web 核心；桌面版用 Tauri 2 把这份核心包进系统窗口。打开本地 DWG / DXF，平移缩放，开关图层，切换模型与布局，做距离、面积、角度和弧长测量，点选图元看特性，并把当前视图导出成带标注的 PNG 或 PDF。
 
-后续外壳（macOS / Windows 的 Tauri 2、Android 的 Capacitor、HarmonyOS NEXT 的 ArkWeb）只需要把同一份 `dist` 包进壳，再把本地文件字节交给 `window.openCadFile`。应用不依赖服务器。
-
-界面默认简体中文，文案在 `src/i18n`，可以切到英文。
+应用不依赖服务器。界面默认简体中文，文案在 `src/i18n`，可以切到英文。窗口标题是「鑫垚CAD看图」。安装包和可执行文件名用 ASCII `XinyaoCADViewer`，避免 Windows 资源编译器拒绝非 ASCII 版本信息。
 
 ## 功能
 
@@ -28,6 +26,38 @@ npm run dev
 ```
 
 开发服务器是 [http://127.0.0.1:43123](http://127.0.0.1:43123)。`npm run build` 生成纯静态的 `dist/`，再用 `npm run preview` 查看。
+
+## 桌面版
+
+源码在 `src-tauri/`。需要 Rust 1.77+、以及各平台的 WebView 依赖（Linux 是 WebKitGTK 4.1，Windows 是 WebView2，macOS 是系统 WKWebView）。
+
+```bash
+npm install
+npm run desktop:dev     # 开发：连到上面的 Vite
+npm run desktop:build   # 为本机平台打安装包
+```
+
+命令行打开图纸，以及双击 / “打开方式”关联的 `.dwg`、`.dxf`，都会交给 `window.openCadFile`。程序是单实例：已经开着时再打开另一个文件，会交给当前窗口。桌面上的「打开」和 PNG/PDF 导出使用系统对话框。「关于」里写明 GPL-3.0 和 LibreDWG。
+
+在 Linux 上交叉编译 Windows NSIS 安装包（实验性，不能打 MSI）：
+
+```bash
+sudo apt install nsis lld llvm clang
+rustup target add x86_64-pc-windows-msvc
+cargo install --locked cargo-xwin
+npm run tauri build -- --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis
+```
+
+产物在 `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/`。MSI 需要在 Windows 上用 WiX 构建。macOS 的 `.dmg` 只能在 Mac 上构建，本仓库的 GitHub Actions 工作流 `.github/workflows/desktop.yml` 会在 `macos-latest` 上打 universal dmg，并在 `windows-latest` 上打 NSIS 和 MSI。
+
+### 代码签名
+
+当前安装包未签名。
+
+- **macOS**：需要 Apple Developer ID Application 证书。把证书导出为 p12，在 CI 里设置 `APPLE_CERTIFICATE`、`APPLE_CERTIFICATE_PASSWORD`、`APPLE_SIGNING_IDENTITY`。公证再设置 `APPLE_ID`、`APPLE_PASSWORD`（app 专用密码）、`APPLE_TEAM_ID`。Tauri 在这些变量存在时会签名并公证。说明见 https://v2.tauri.app/distribute/sign/macos/ 。
+- **Windows**：Authenticode 用自己的代码签名证书。在 `tauri.conf.json` 的 `bundle.windows.certificateThumbprint` 填证书指纹，或设置 `bundle.windows.signCommand` 调用 `signtool`。时间戳服务器用证书颁发机构提供的 URL。说明见 https://v2.tauri.app/distribute/sign/windows/ 。`TAURI_SIGNING_PRIVATE_KEY` 只用于 Tauri 更新器，不是安装包签名。
+
+阶段二测到的安装包和还没在本机跑起来的平台，见 [docs/phase2-report.md](docs/phase2-report.md)。
 
 其他命令：
 
@@ -97,7 +127,7 @@ const client = window.lantu.worldToClient(0, 0) // 图纸坐标 → 视口 CSS �
 
 ## 路线图
 
-1. **Tauri 2（macOS / Windows）**：把 `dist` 作为前端资源。系统打开对话框读出 `Uint8Array`，调用 `window.openCadFile`。确认 asset 协议能加载 `.wasm` 和 worker。
+1. **Tauri 2（macOS / Windows）**：桌面壳已接上。还要在真正的 WebView2 和 WKWebView 上跑一遍安装包，并补上签名。
 2. **Capacitor（Android）**：同样的静态资源和 `openCadFile`。用系统文档选择器，而不是再写一套解析。
 3. **HarmonyOS NEXT（手机 / 平板 / PC）**：ArkTS 壳用 ArkWeb 加载这套页面。从沙箱或选择器得到字节后 `runJavaScript` 调 `openCadFile`。
 4. **解析器**：复杂或较新的 DWG 可换成商业库，只替换 `src/dwg/active.ts`。

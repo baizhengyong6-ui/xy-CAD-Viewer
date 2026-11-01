@@ -2,6 +2,7 @@
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { SAMPLE_FILES, useCadApp, type MeasureRow } from './session/useCadApp'
+import { fetchAppInfo, isDesktopShell, type DesktopInfo } from './shell/desktop'
 import type { PropertyRow } from './viewer/properties'
 
 const { t, locale } = useI18n()
@@ -9,14 +10,27 @@ const host = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const dragging = ref(false)
 const scaleDraft = ref('1')
+const showAbout = ref(false)
+const about = ref<DesktopInfo | null>(null)
 const cad = useCadApp()
 
 function onKeyDown(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return
-  if (!cad.state.showSamples && !cad.state.showRecent) return
+  if (!cad.state.showSamples && !cad.state.showRecent && !showAbout.value) return
   cad.state.showSamples = false
   cad.state.showRecent = false
+  showAbout.value = false
   event.stopPropagation()
+}
+
+function requestOpen(): void {
+  if (isDesktopShell()) void cad.openNative()
+  else fileInput.value?.click()
+}
+
+async function openAbout(): Promise<void> {
+  showAbout.value = true
+  if (!about.value) about.value = await fetchAppInfo()
 }
 
 onMounted(async () => {
@@ -117,7 +131,7 @@ function measureKind(row: MeasureRow): string {
       </div>
 
       <div class="tools">
-        <button type="button" data-testid="open-file" @click="fileInput?.click()">
+        <button type="button" data-testid="open-file" @click="requestOpen()">
           {{ t('toolbar.open') }}
         </button>
         <button type="button" data-testid="open-samples" @click="cad.state.showSamples = true">
@@ -181,6 +195,7 @@ function measureKind(row: MeasureRow): string {
       </div>
 
       <div class="locale">
+        <button type="button" data-testid="about" @click="openAbout()">{{ t('toolbar.about') }}</button>
         <button type="button" :class="{ on: locale === 'zh-CN' }" @click="cad.setViewerLocale('zh-CN')">中文</button>
         <button type="button" :class="{ on: locale === 'en' }" @click="cad.setViewerLocale('en')">EN</button>
       </div>
@@ -219,7 +234,7 @@ function measureKind(row: MeasureRow): string {
           <h1>{{ t('empty.title') }}</h1>
           <p>{{ t('empty.body') }}</p>
           <div class="empty-actions">
-            <button type="button" class="primary" @click="fileInput?.click()">{{ t('empty.open') }}</button>
+            <button type="button" class="primary" @click="requestOpen()">{{ t('empty.open') }}</button>
             <button type="button" @click="cad.state.showSamples = true">{{ t('empty.samples') }}</button>
           </div>
         </div>
@@ -358,6 +373,16 @@ function measureKind(row: MeasureRow): string {
           <button type="button" class="text" @click="cad.removeRecent(entry.id)">{{ t('recent.remove') }}</button>
         </div>
         <button type="button" class="text" @click="cad.state.showRecent = false">{{ t('common.close') }}</button>
+      </div>
+    </div>
+
+    <div v-if="showAbout" class="modal" @click.self="showAbout = false">
+      <div class="sheet" role="dialog" data-testid="about-dialog">
+        <h2>{{ about?.name || t('app.name') }}</h2>
+        <p>{{ t('about.version', { version: about?.version || '0.2.0' }) }}</p>
+        <p>{{ about?.notice || t('about.notice') }}</p>
+        <p class="muted">{{ t('about.license', { license: about?.license || 'GPL-3.0-only' }) }}</p>
+        <button type="button" class="text" @click="showAbout = false">{{ t('common.close') }}</button>
       </div>
     </div>
 

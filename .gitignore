@@ -16,6 +16,8 @@ public/workers/*
 test-results
 playwright-report
 blob-report
+src-tauri/target
+src-tauri/gen/schemas
 
 # Editor directories and files
 .vscode/*

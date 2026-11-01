@@ -1,6 +1,6 @@
 export default {
   app: {
-    name: '览图',
+    name: '鑫垚CAD看图',
     tagline: '开源 CAD 看图',
   },
   common: {
@@ -24,6 +24,13 @@ export default {
     layers: '图层',
     inspect: '结果',
     language: '语言',
+    about: '关于',
+  },
+  about: {
+    version: '版本 {version}',
+    license: '许可证：{license}',
+    notice:
+      '本程序按 GNU GPL-3.0-only 授权。DWG 解析使用 GNU LibreDWG（GPL-3.0）编译成的 WebAssembly，并在独立 Web Worker 中运行。查看器核心为 MIT，中文回退字体 Noto Sans SC 为 SIL OFL。安装包内附完整 LICENSE。',
   },
   empty: {
     title: '把 DWG 或 DXF 拖到这里',

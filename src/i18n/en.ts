@@ -1,6 +1,6 @@
 export default {
   app: {
-    name: 'Lantu',
+    name: 'Xinyao CAD Viewer',
     tagline: 'Open-source CAD viewer',
   },
   common: {
@@ -24,6 +24,13 @@ export default {
     layers: 'Layers',
     inspect: 'Results',
     language: 'Language',
+    about: 'About',
+  },
+  about: {
+    version: 'Version {version}',
+    license: 'License: {license}',
+    notice:
+      'This program is licensed under GNU GPL-3.0-only. DWG parsing uses GNU LibreDWG (GPL-3.0) compiled to WebAssembly and run in a separate Web Worker. The viewer core is MIT. The Chinese fallback font, Noto Sans SC, is SIL OFL. The installer includes the full LICENSE.',
   },
   empty: {
     title: 'Drop a DWG or DXF here',

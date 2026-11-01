@@ -37,9 +37,17 @@ import {
 } from '../measure/math'
 import { cadDataBaseUrl, publicUrl } from '../runtime/assets'
 import { forgetRecent, listRecent, loadRecent, rememberFile, type RecentFile } from '../storage/recent'
-import { captureView, downloadDataUrl, downloadPdf, type ExportLabel } from '../viewer/exportImage'
+import { captureView, dataUrlToBytes, downloadDataUrl, downloadPdf, renderPdfBytes, type ExportLabel } from '../viewer/exportImage'
 import { describeEntity, type PropertyRow } from '../viewer/properties'
 import { installBridge } from '../shell/bridge'
+import {
+  bindDesktopOpens,
+  isDesktopShell,
+  noteRuntime,
+  pickDrawingPath,
+  readDrawingPath,
+  saveExportFile,
+} from '../shell/desktop'
 
 export type ToolId = 'select' | 'pan' | 'distance' | 'area' | 'angle' | 'arc'
 
@@ -540,8 +548,48 @@ export function useCadApp() {
       openCadFile: (name, data) => openBuffer(name, data, true),
       worldToClient,
     })
+    if (isDesktopShell()) {
+      void probeDesktopAssets()
+      void bindDesktopOpens(async (path) => {
+        const drawing = await readDrawingPath(path)
+        const size = drawing.data.byteLength
+        const opened = await openBuffer(drawing.name, drawing.data, true)
+        await noteRuntime(`opened ${path} name=${drawing.name} bytes=${size} ok=${opened}`)
+      })
+    }
     state.recent = await listRecent()
     state.ready = true
+  }
+
+  async function probeDesktopAssets(): Promise<void> {
+    const urls = [
+      publicUrl('workers/libredwg-parser-worker.js'),
+      publicUrl('workers/libredwg-web.wasm'),
+      publicUrl('workers/mtext-renderer-worker.js'),
+      publicUrl('cad-data/fonts/fonts.json'),
+      publicUrl('cad-data/fonts/NotoSansSC-Regular.otf'),
+    ]
+    for (const url of urls) {
+      try {
+        const response = await fetch(url)
+        await noteRuntime(
+          `asset ${response.status} ${response.headers.get('content-type') ?? ''} ${url}`,
+        )
+      } catch (error) {
+        await noteRuntime(`asset error ${url} ${String(error)}`)
+      }
+    }
+    const canvas = document.createElement('canvas')
+    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl')
+    const renderer = gl ? String(gl.getParameter(gl.RENDERER)) : 'unavailable'
+    await noteRuntime(`webgl ${gl ? 'ok' : 'missing'} ${renderer} origin=${window.location.origin}`)
+  }
+
+  async function openNative(): Promise<void> {
+    const path = await pickDrawingPath()
+    if (!path) return
+    const drawing = await readDrawingPath(path)
+    await openBuffer(drawing.name, drawing.data, true)
   }
 
   function exportLabels(): ExportLabel[] {
@@ -563,7 +611,8 @@ export function useCadApp() {
       const footer = translate('export.footer', { name: state.fileName })
       const dataUrl = await captureView(current, exportLabels(), footer)
       const stem = state.fileName.replace(/\.(dwg|dxf)$/i, '')
-      downloadDataUrl(dataUrl, `${stem}.png`)
+      if (isDesktopShell()) await saveExportFile('png', dataUrlToBytes(dataUrl), `${stem}.png`)
+      else downloadDataUrl(dataUrl, `${stem}.png`)
     } catch (error) {
       console.error(error)
       state.error = translate('errors.export')
@@ -580,7 +629,8 @@ export function useCadApp() {
       const footer = translate('export.footer', { name: state.fileName })
       const dataUrl = await captureView(current, exportLabels(), footer)
       const stem = state.fileName.replace(/\.(dwg|dxf)$/i, '')
-      await downloadPdf(dataUrl, `${stem}.pdf`)
+      if (isDesktopShell()) await saveExportFile('pdf', await renderPdfBytes(dataUrl), `${stem}.pdf`)
+      else await downloadPdf(dataUrl, `${stem}.pdf`)
     } catch (error) {
       console.error(error)
       state.error = translate('errors.export')
@@ -595,6 +645,7 @@ export function useCadApp() {
     state,
     mount,
     openFile,
+    openNative,
     openSample,
     openRecent,
     async removeRecent(id: string) {

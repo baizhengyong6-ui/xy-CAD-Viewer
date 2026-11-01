@@ -1,0 +1,89 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "XinyaoCADViewer",
+  "version": "0.2.0",
+  "identifier": "com.xinyao.cadviewer",
+  "mainBinaryName": "xinyao-cad-viewer",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://127.0.0.1:43123",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "鑫垚CAD看图",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 560,
+        "resizable": true,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost; img-src 'self' blob: data: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$HOME/**", "$DOCUMENT/**", "$DOWNLOAD/**", "$DESKTOP/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi", "dmg", "app"],
+    "publisher": "Xinyao",
+    "category": "GraphicsAndDesign",
+    "copyright": "Copyright (C) 2026 Xinyao. GPL-3.0-only. Includes GNU LibreDWG (GPL-3.0).",
+    "shortDescription": "Xinyao CAD Viewer",
+    "longDescription": "Xin yao CAD viewer for DWG and DXF. Licensed under GPL-3.0-only because it bundles GNU LibreDWG as WebAssembly.",
+    "licenseFile": "../LICENSE",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["dwg"],
+        "name": "DWG drawing",
+        "description": "AutoCAD DWG drawing",
+        "mimeType": "application/acad",
+        "role": "Viewer",
+        "rank": "Default"
+      },
+      {
+        "ext": ["dxf"],
+        "name": "DXF drawing",
+        "description": "AutoCAD DXF exchange",
+        "mimeType": "image/vnd.dxf",
+        "role": "Viewer",
+        "rank": "Default"
+      }
+    ],
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/xinyao.desktop"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": true,
+        "startMenuFolder": "XinyaoCADViewer"
+      },
+      "wix": {
+        "language": ["zh-CN", "en-US"]
+      }
+    }
+  }
+}

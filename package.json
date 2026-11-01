@@ -1,7 +1,7 @@
 {
   "name": "lantu-viewer",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -12,7 +12,10 @@
     "preview": "vite preview --host 127.0.0.1 --port 43123 --strictPort",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "samples": "python3 scripts/generate_samples.py"
+    "samples": "python3 scripts/generate_samples.py",
+    "tauri": "tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build"
   },
   "dependencies": {
     "@mlightcad/cad-simple-viewer": "1.7.6",
@@ -21,6 +24,8 @@
     "@mlightcad/mtext-parser": "1.5.5",
     "@mlightcad/mtext-renderer": "0.13.4",
     "@mlightcad/three-renderer": "1.7.6",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
     "@velipso/polybool": "^1.1.1",
     "jspdf": "^4.2.1",
     "lodash-es": "4.17.21",
@@ -30,6 +35,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^24.19.2",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vue/tsconfig": "^0.9.1",

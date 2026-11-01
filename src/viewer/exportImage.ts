@@ -110,6 +110,46 @@ export async function captureView(
   return out.toDataURL('image/png')
 }
 
+export function dataUrlToBytes(dataUrl: string): Uint8Array {
+  const comma = dataUrl.indexOf(',')
+  const payload = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl
+  const binary = atob(payload)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return bytes
+}
+
+function loadImage(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('pdf image'))
+    image.src = dataUrl
+  })
+}
+
+export async function renderPdfBytes(dataUrl: string): Promise<Uint8Array> {
+  const image = await loadImage(dataUrl)
+  const { jsPDF } = await import('jspdf')
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const pageWidth = 297
+  const pageHeight = 210
+  const margin = 8
+  const maxWidth = pageWidth - margin * 2
+  const maxHeight = pageHeight - margin * 2
+  const ratio = image.width > 0 ? image.height / image.width : 0.7
+  let width = maxWidth
+  let height = width * ratio
+  if (height > maxHeight) {
+    height = maxHeight
+    width = height / Math.max(ratio, 0.01)
+  }
+  const x = (pageWidth - width) / 2
+  const y = (pageHeight - height) / 2
+  pdf.addImage(dataUrl, 'PNG', x, y, width, height)
+  return new Uint8Array(pdf.output('arraybuffer'))
+}
+
 export function downloadDataUrl(dataUrl: string, filename: string): void {
   const link = document.createElement('a')
   link.href = dataUrl
@@ -119,32 +159,10 @@ export function downloadDataUrl(dataUrl: string, filename: string): void {
   link.remove()
 }
 
-export function downloadPdf(dataUrl: string, filename: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => {
-      void import('jspdf').then(({ jsPDF }) => {
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-      const pageWidth = 297
-      const pageHeight = 210
-      const margin = 8
-      const maxWidth = pageWidth - margin * 2
-      const maxHeight = pageHeight - margin * 2
-      const ratio = image.width > 0 ? image.height / image.width : 0.7
-      let width = maxWidth
-      let height = width * ratio
-      if (height > maxHeight) {
-        height = maxHeight
-        width = height / Math.max(ratio, 0.01)
-      }
-      const x = (pageWidth - width) / 2
-      const y = (pageHeight - height) / 2
-      pdf.addImage(dataUrl, 'PNG', x, y, width, height)
-      pdf.save(filename)
-      resolve()
-      }).catch(reject)
-    }
-    image.onerror = () => reject(new Error('pdf image'))
-    image.src = dataUrl
-  })
+export async function downloadPdf(dataUrl: string, filename: string): Promise<void> {
+  const bytes = await renderPdfBytes(dataUrl)
+  const blob = new Blob([bytes.slice()], { type: 'application/pdf' })
+  const url = URL.createObjectURL(blob)
+  downloadDataUrl(url, filename)
+  URL.revokeObjectURL(url)
 }

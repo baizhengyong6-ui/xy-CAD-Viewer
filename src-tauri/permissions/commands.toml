@@ -1,0 +1,24 @@
+[[permission]]
+identifier = "allow-read-drawing"
+description = "Read a local DWG or DXF file into the viewer."
+commands.allow = ["read_drawing"]
+
+[[permission]]
+identifier = "allow-write-export"
+description = "Write a PNG or PDF export chosen in the native save dialog."
+commands.allow = ["write_export"]
+
+[[permission]]
+identifier = "allow-take-pending-opens"
+description = "Take drawing paths queued by file associations or the command line."
+commands.allow = ["take_pending_opens"]
+
+[[permission]]
+identifier = "allow-app-info"
+description = "Read the product name, version, and GPL notice."
+commands.allow = ["app_info"]
+
+[[permission]]
+identifier = "allow-note-runtime"
+description = "Print a desktop runtime diagnostic line."
+commands.allow = ["note_runtime"]

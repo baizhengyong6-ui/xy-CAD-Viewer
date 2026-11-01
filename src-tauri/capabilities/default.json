@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Main window of 鑫垚CAD看图",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "dialog:default",
+    "allow-read-drawing",
+    "allow-write-export",
+    "allow-take-pending-opens",
+    "allow-app-info",
+    "allow-note-runtime"
+  ]
+}
