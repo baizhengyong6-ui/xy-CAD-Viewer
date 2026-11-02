@@ -1,0 +1,8 @@
+{
+  "name": "entry",
+  "version": "0.3.0",
+  "description": "鑫垚CAD看图",
+  "main": "",
+  "license": "GPL-3.0-only",
+  "dependencies": {}
+}

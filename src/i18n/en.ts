@@ -34,7 +34,7 @@ export default {
   },
   empty: {
     title: 'Drop a DWG or DXF here',
-    body: 'Files are parsed on this device and are not uploaded. Pinch to zoom and drag to pan on touch screens.',
+    body: 'Files are parsed on this device and are not uploaded. Pinch to zoom and drag to pan. To measure, press and hold for about half a second; a crosshair sits above your finger with a magnifier.',
     open: 'Choose a local file',
     samples: 'Open a sample',
   },
@@ -141,6 +141,8 @@ export default {
     export: 'Export failed. Wait until the drawing has finished drawing.',
     empty: 'Open a drawing first.',
     font: 'Some fonts are missing. Text is shown with Noto Sans SC instead.',
+    memory: 'This drawing is about {size}, which is too large for this device. Open a smaller file, or use a computer.',
+    memoryFail: 'The device ran out of memory while opening this drawing.',
   },
   export: {
     footer: '{name} · Lantu',

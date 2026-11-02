@@ -1,7 +1,7 @@
 {
   "name": "lantu-viewer",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -15,9 +15,14 @@
     "samples": "python3 scripts/generate_samples.py",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build"
+    "desktop:build": "tauri build",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:build": "npm run android:sync && cd android && ./gradlew assembleRelease bundleRelease",
+    "harmony:sync": "npm run build && node scripts/sync-harmony-web.mjs"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.0",
     "@mlightcad/cad-simple-viewer": "1.7.6",
     "@mlightcad/data-model": "1.15.18",
     "@mlightcad/libredwg-converter": "3.15.18",
@@ -34,6 +39,8 @@
     "vue-i18n": "^11.4.16"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^8.6.0",
     "@playwright/test": "^1.58.2",
     "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^24.19.2",

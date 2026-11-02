@@ -9,10 +9,17 @@ export interface LantuBridge {
   worldToClient(x: number, y: number): WorldPoint | null
 }
 
+export interface HarmonyHost {
+  pick(): void
+  share(name: string, mime: string, dataBase64: string): void
+}
+
 declare global {
   interface Window {
     openCadFile: LantuBridge['openCadFile']
     lantu: LantuBridge
+    XinyaoHarmony?: HarmonyHost
+    __xinyaoOpenInbox?: (id: string, name: string) => void
   }
 }
 

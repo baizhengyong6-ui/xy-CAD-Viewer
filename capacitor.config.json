@@ -1,0 +1,11 @@
+{
+  "appId": "com.xinyao.cadviewer",
+  "appName": "鑫垚CAD看图",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "useLegacyBridge": false
+  }
+}

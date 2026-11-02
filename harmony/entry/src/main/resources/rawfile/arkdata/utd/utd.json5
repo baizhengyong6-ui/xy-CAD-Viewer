@@ -1,0 +1,20 @@
+{
+  "UniformDataTypeDeclarations": [
+    {
+      "typeId": "com.xinyao.cadviewer.dwg",
+      "belongingToTypes": ["general.object"],
+      "filenameExtensions": [".dwg"],
+      "mimeTypes": ["application/acad", "application/x-acad", "application/dwg", "image/vnd.dwg", "application/octet-stream"],
+      "description": "AutoCAD DWG drawing",
+      "referenceURL": ""
+    },
+    {
+      "typeId": "com.xinyao.cadviewer.dxf",
+      "belongingToTypes": ["general.object"],
+      "filenameExtensions": [".dxf"],
+      "mimeTypes": ["image/vnd.dxf", "application/dxf", "application/x-dxf", "application/octet-stream"],
+      "description": "AutoCAD DXF exchange",
+      "referenceURL": ""
+    }
+  ]
+}
