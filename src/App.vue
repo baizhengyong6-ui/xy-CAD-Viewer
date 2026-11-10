@@ -2,6 +2,7 @@
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { SAMPLE_FILES, useCadApp, type MeasureRow } from './session/useCadApp'
+import { formatOpenedAt } from './session/tabs'
 import { fetchAppInfo, isDesktopShell, type DesktopInfo } from './shell/desktop'
 import { isMobileShell } from './shell/mobile'
 import { APP_VERSION } from './version'
@@ -14,16 +15,25 @@ const dragging = ref(false)
 const scaleDraft = ref('1')
 const showAbout = ref(false)
 const about = ref<DesktopInfo | null>(null)
+const layerMenu = ref<HTMLElement | null>(null)
+const compact = ref(false)
 const cad = useCadApp()
 const appVersion = APP_VERSION
 
 function onKeyDown(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return
-  if (!cad.state.showSamples && !cad.state.showRecent && !showAbout.value) return
+  cad.state.showLayerMenu = false
+  if (!cad.state.showSamples && !(compact.value && cad.state.showRecentPanel) && !showAbout.value) return
   cad.state.showSamples = false
-  cad.state.showRecent = false
+  if (compact.value) cad.state.showRecentPanel = false
   showAbout.value = false
   event.stopPropagation()
+}
+
+function onPointerDown(event: PointerEvent): void {
+  const target = event.target
+  if (!(target instanceof Node)) return
+  if (layerMenu.value && !layerMenu.value.contains(target)) cad.state.showLayerMenu = false
 }
 
 function requestOpen(): void {
@@ -39,21 +49,24 @@ async function openAbout(): Promise<void> {
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeyDown, true)
+  window.addEventListener('pointerdown', onPointerDown, true)
   scaleDraft.value = String(cad.state.scale)
-  const compact = window.matchMedia('(max-width: 900px)')
+  const query = window.matchMedia('(max-width: 900px)')
   const applyCompact = () => {
-    if (compact.matches) {
-      cad.state.showLayers = false
+    compact.value = query.matches
+    if (query.matches) {
+      cad.state.showRecentPanel = false
       cad.state.showInspect = false
     }
   }
   applyCompact()
-  compact.addEventListener('change', applyCompact)
+  query.addEventListener('change', applyCompact)
   if (host.value) await cad.mount(host.value)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeyDown, true)
+  window.removeEventListener('pointerdown', onPointerDown, true)
 })
 
 const hint = computed(() => t(`measure.hints.${cad.state.tool}`))
@@ -115,6 +128,10 @@ function coordText(): string {
 function measureKind(row: MeasureRow): string {
   return t(`measure.${row.type}`)
 }
+
+function openedLabel(openedAt: number): string {
+  return formatOpenedAt(openedAt)
+}
 </script>
 
 <template>
@@ -125,6 +142,29 @@ function measureKind(row: MeasureRow): string {
     @dragleave.prevent="dragging = false"
     @drop.prevent="onDrop"
   >
+    <div class="tabbar" role="tablist" data-testid="tab-bar" :aria-label="t('tabs.close')">
+      <div
+        v-for="tab in cad.state.tabs"
+        :key="tab.id"
+        class="tab"
+        role="tab"
+        :aria-selected="tab.id === cad.state.activeTabId"
+        :data-testid="`tab-${tab.id}`"
+        @click="cad.activateTab(tab.id)"
+      >
+        <span class="tab-name">{{ tab.name }}</span>
+        <button
+          type="button"
+          class="tab-close"
+          :aria-label="t('tabs.close')"
+          data-testid="close-tab"
+          @click.stop="cad.closeTab(tab.id)"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+
     <header class="topbar">
       <div class="brand">
         <span class="mark" aria-hidden="true" />
@@ -141,9 +181,48 @@ function measureKind(row: MeasureRow): string {
         <button type="button" data-testid="open-samples" @click="cad.state.showSamples = true">
           {{ t('toolbar.samples') }}
         </button>
-        <button type="button" data-testid="open-recent" @click="cad.state.showRecent = true">
+        <button
+          type="button"
+          data-testid="open-recent"
+          :aria-expanded="cad.state.showRecentPanel"
+          @click="cad.state.showRecentPanel = !cad.state.showRecentPanel"
+        >
           {{ t('toolbar.recent') }}
         </button>
+        <span class="sep" />
+        <div ref="layerMenu" class="layer-menu">
+          <button
+            type="button"
+            data-testid="layer-menu"
+            :aria-expanded="cad.state.showLayerMenu"
+            :disabled="!cad.state.hasDrawing"
+            @click.stop="cad.state.showLayerMenu = !cad.state.showLayerMenu"
+          >
+            {{ t('toolbar.layers') }}
+          </button>
+          <div v-if="cad.state.showLayerMenu" class="layer-pop" data-testid="layer-pop" @click.stop>
+            <div class="panel-head">
+              <h2>{{ t('layers.title') }}</h2>
+              <button type="button" class="text" @click="cad.showAllLayers()">{{ t('layers.showAll') }}</button>
+            </div>
+            <p v-if="cad.state.layers.length === 0" class="muted">{{ t('layers.empty') }}</p>
+            <ul v-else class="layer-list">
+              <li v-for="layer in cad.state.layers" :key="layer.name">
+                <label>
+                  <input
+                    type="checkbox"
+                    :data-testid="`layer-${layer.name}`"
+                    :checked="layer.isOn"
+                    @change="cad.toggleLayer(layer.name, ($event.target as HTMLInputElement).checked)"
+                  />
+                  <i :style="{ background: layer.cssColor }" />
+                  <span>{{ layer.name }}</span>
+                </label>
+                <em v-if="layer.isFrozen">{{ t('layers.frozen') }}</em>
+              </li>
+            </ul>
+          </div>
+        </div>
         <span class="sep" />
         <button type="button" :class="{ on: cad.state.tool === 'pan' }" @click="cad.runTool('pan')">
           {{ t('toolbar.pan') }}
@@ -206,24 +285,45 @@ function measureKind(row: MeasureRow): string {
     </header>
 
     <div class="workspace">
-      <aside class="panel layers" :class="{ open: cad.state.showLayers }">
+      <button
+        v-if="compact && cad.state.showRecentPanel"
+        type="button"
+        class="drawer-backdrop"
+        data-testid="recent-backdrop"
+        :aria-label="t('recent.collapse')"
+        @click="cad.state.showRecentPanel = false"
+      />
+      <aside
+        class="panel recent"
+        :class="{ open: cad.state.showRecentPanel, collapsed: !cad.state.showRecentPanel }"
+        data-testid="recent-panel"
+      >
         <div class="panel-head">
-          <h2>{{ t('layers.title') }}</h2>
-          <button type="button" class="text" @click="cad.showAllLayers()">{{ t('layers.showAll') }}</button>
+          <h2>{{ t('recent.title') }}</h2>
+          <button
+            type="button"
+            class="text"
+            data-testid="recent-collapse"
+            @click="cad.state.showRecentPanel = false"
+          >
+            {{ t('recent.collapse') }}
+          </button>
         </div>
-        <p v-if="cad.state.layers.length === 0" class="muted">{{ t('layers.empty') }}</p>
-        <ul v-else class="layer-list">
-          <li v-for="layer in cad.state.layers" :key="layer.name">
-            <label>
-              <input
-                type="checkbox"
-                :checked="layer.isOn"
-                @change="cad.toggleLayer(layer.name, ($event.target as HTMLInputElement).checked)"
-              />
-              <i :style="{ background: layer.cssColor }" />
-              <span>{{ layer.name }}</span>
-            </label>
-            <em v-if="layer.isFrozen">{{ t('layers.frozen') }}</em>
+        <p v-if="cad.state.recent.length === 0" class="muted">{{ t('recent.empty') }}</p>
+        <ul v-else class="recent-list" data-testid="recent-list">
+          <li v-for="entry in cad.state.recent" :key="entry.id" class="recent-row">
+            <button
+              type="button"
+              data-testid="recent-item"
+              :disabled="!entry.stored"
+              @click="cad.openRecent(entry)"
+            >
+              {{ entry.name }}
+              <small>{{ openedLabel(entry.openedAt) }} · {{ formatSize(entry.size) }}</small>
+            </button>
+            <button type="button" class="text" :aria-label="t('recent.remove')" @click="cad.removeRecent(entry.id)">
+              {{ t('recent.remove') }}
+            </button>
           </li>
         </ul>
       </aside>
@@ -333,7 +433,9 @@ function measureKind(row: MeasureRow): string {
       <span>{{ t('status.coords') }} {{ coordText() }}</span>
       <span class="snap">{{ t('status.snap') }}</span>
       <span class="mobile-toggles">
-        <button type="button" @click="cad.state.showLayers = !cad.state.showLayers">{{ t('toolbar.layers') }}</button>
+        <button type="button" data-testid="recent-drawer" @click="cad.state.showRecentPanel = !cad.state.showRecentPanel">
+          {{ t('toolbar.recent') }}
+        </button>
         <button type="button" @click="cad.state.showInspect = !cad.state.showInspect">{{ t('toolbar.inspect') }}</button>
       </span>
     </footer>
@@ -362,21 +464,6 @@ function measureKind(row: MeasureRow): string {
           {{ t(sample.label) }}
         </button>
         <button type="button" class="text" @click="cad.state.showSamples = false">{{ t('common.close') }}</button>
-      </div>
-    </div>
-
-    <div v-if="cad.state.showRecent" class="modal" @click.self="cad.state.showRecent = false">
-      <div class="sheet" role="dialog">
-        <h2>{{ t('recent.title') }}</h2>
-        <p v-if="cad.state.recent.length === 0" class="muted">{{ t('recent.empty') }}</p>
-        <div v-for="entry in cad.state.recent" :key="entry.id" class="recent-row">
-          <button type="button" :disabled="!entry.stored" @click="cad.openRecent(entry)">
-            {{ entry.name }}
-            <small>{{ formatSize(entry.size) }}</small>
-          </button>
-          <button type="button" class="text" @click="cad.removeRecent(entry.id)">{{ t('recent.remove') }}</button>
-        </div>
-        <button type="button" class="text" @click="cad.state.showRecent = false">{{ t('common.close') }}</button>
       </div>
     </div>
 

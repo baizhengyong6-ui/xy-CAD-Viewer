@@ -60,6 +60,12 @@ import {
   shareMobileFile,
 } from '../shell/mobile'
 import { configureTouchSnap } from '../shell/touchSnap'
+import {
+  canOpenAnotherTab,
+  findTabByName,
+  tabLimit,
+  type TabModel,
+} from './tabs'
 
 export type ToolId = 'select' | 'pan' | 'distance' | 'area' | 'angle' | 'arc'
 
@@ -155,6 +161,9 @@ export function useCadApp() {
     hasDrawing: false,
     viewReady: false,
     fileName: '',
+    tabs: [] as TabModel[],
+    activeTabId: '',
+    showLayerMenu: false,
     error: '',
     notice: '',
     tool: 'select' as ToolId,
@@ -166,8 +175,7 @@ export function useCadApp() {
     measurements: [] as MeasureRow[],
     recent: [] as RecentFile[],
     showSamples: false,
-    showRecent: false,
-    showLayers: true,
+    showRecentPanel: typeof window === 'undefined' || !window.matchMedia('(max-width: 900px)').matches,
     showInspect: true,
     unit: saved.unit,
     scale: saved.scale,
@@ -179,7 +187,36 @@ export function useCadApp() {
   let toolToken = 0
   let stopMeasure: (() => void) | null = null
   let layerListener: ((payload: { layers: LayerRow[] }) => void) | null = null
+  let boundLayerStore: { events: { changed: { removeEventListener(listener: (payload: { layers: LayerRow[] }) => void): void } } } | null = null
   let selectionListener: (() => void) | null = null
+  const tabIds = new WeakMap<object, string>()
+  let tabSequence = 1
+
+  function mobileTabs(): boolean {
+    if (isMobileShell()) return true
+    return typeof window !== 'undefined' && window.matchMedia('(max-width: 900px)').matches
+  }
+
+  function tabIdFor(doc: object): string {
+    const existing = tabIds.get(doc)
+    if (existing) return existing
+    const id = `tab-${tabSequence}`
+    tabSequence += 1
+    tabIds.set(doc, id)
+    return id
+  }
+
+  function openDocuments() {
+    try {
+      return AcApDocManager.instance.documents.filter((doc) => doc.fileName && !doc.isReusableUntitled)
+    } catch {
+      return []
+    }
+  }
+
+  function documentForTab(id: string) {
+    return openDocuments().find((doc) => tabIdFor(doc) === id)
+  }
 
   function persistSettings(): void {
     localStorage.setItem(
@@ -293,7 +330,13 @@ export function useCadApp() {
     return symbol ? `${formatNumber(shown, state.precision)} ${symbol}²` : formatNumber(shown, state.precision)
   }
 
+  function unbindLayers(): void {
+    if (layerListener && boundLayerStore) boundLayerStore.events.changed.removeEventListener(layerListener)
+    boundLayerStore = null
+  }
+
   function refreshLayers(): void {
+    unbindLayers()
     if (!state.hasDrawing) {
       state.layers = []
       return
@@ -305,7 +348,6 @@ export function useCadApp() {
       isFrozen: layer.isFrozen,
       cssColor: layer.cssColor,
     }))
-    if (layerListener) store.events.changed.removeEventListener(layerListener)
     layerListener = (payload) => {
       state.layers = payload.layers.map((layer) => ({
         name: layer.name,
@@ -315,6 +357,42 @@ export function useCadApp() {
       }))
     }
     store.events.changed.addEventListener(layerListener)
+    boundLayerStore = store
+  }
+
+  function syncDocumentUi(): void {
+    const docs = openDocuments()
+    state.tabs = docs.map((doc) => ({ id: tabIdFor(doc), name: doc.fileName }))
+    let currentName = ''
+    let currentId = ''
+    try {
+      const current = AcApDocManager.instance.curDocument
+      if (current.fileName && !current.isReusableUntitled) {
+        currentName = current.fileName
+        currentId = tabIdFor(current)
+      }
+    } catch {
+      currentName = ''
+      currentId = ''
+    }
+    state.fileName = currentName
+    state.activeTabId = currentId
+    state.hasDrawing = currentId !== ''
+    if (!state.hasDrawing) {
+      state.viewReady = false
+      state.layouts = []
+      state.activeLayoutId = ''
+      state.properties = []
+      state.selectionCount = 0
+      state.measurements = []
+      state.layers = []
+      unbindLayers()
+      return
+    }
+    refreshLayers()
+    refreshLayouts()
+    refreshProperties()
+    refreshMeasurements()
   }
 
   function refreshLayouts(): void {
@@ -374,12 +452,24 @@ export function useCadApp() {
       state.error = translate('errors.memory', { size: formatByteSize(data.byteLength) })
       return false
     }
+    const existing = findTabByName(state.tabs, name)
+    if (existing) {
+      state.showSamples = false
+      state.showLayerMenu = false
+      await activateTab(existing.id)
+      return true
+    }
+    if (!canOpenAnotherTab(openDocuments().length, mobileTabs(), false)) {
+      state.error = translate('tabs.tooMany', { count: tabLimit(mobileTabs()) })
+      state.showSamples = false
+      return false
+    }
     state.opening = true
     state.progress = 0
     state.error = ''
     state.viewReady = false
     state.showSamples = false
-    state.showRecent = false
+    state.showLayerMenu = false
     try {
       const ok = await AcApDocManager.instance.openDocument(name, data, {
         mode: AcEdOpenMode.Read,
@@ -392,14 +482,10 @@ export function useCadApp() {
         state.error = translate('errors.open')
         return false
       }
-      state.hasDrawing = true
-      state.fileName = name
+      syncDocumentUi()
       const opened = view()
       if (opened) clearLayoutMeasurements(opened)
       state.measurements = []
-      refreshLayers()
-      refreshLayouts()
-      refreshProperties()
       syncViewerUnits()
       const current = view()
       configureTouchSnap(current)
@@ -440,6 +526,26 @@ export function useCadApp() {
     }
     const name = file.split('/').pop() ?? file
     await openBuffer(name, await response.arrayBuffer(), false)
+  }
+
+  async function activateTab(id: string): Promise<void> {
+    const doc = documentForTab(id)
+    if (!doc) return
+    state.showLayerMenu = false
+    const ok = await AcApDocManager.instance.activateDocument(doc)
+    if (!ok) return
+    syncDocumentUi()
+    state.viewReady = true
+    setNavigation('select')
+  }
+
+  async function closeTab(id: string): Promise<void> {
+    const doc = documentForTab(id)
+    if (!doc) return
+    state.showLayerMenu = false
+    await AcApDocManager.instance.closeDocument(doc)
+    syncDocumentUi()
+    if (state.hasDrawing) state.viewReady = true
   }
 
   async function openRecent(entry: RecentFile): Promise<void> {
@@ -681,6 +787,7 @@ export function useCadApp() {
 
   onBeforeUnmount(() => {
     stopMeasure?.()
+    unbindLayers()
   })
 
   return {
@@ -703,6 +810,8 @@ export function useCadApp() {
     },
     openSample,
     openRecent,
+    activateTab,
+    closeTab,
     async removeRecent(id: string) {
       await forgetRecent(id)
       state.recent = await listRecent()

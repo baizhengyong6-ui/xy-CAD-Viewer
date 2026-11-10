@@ -10,6 +10,7 @@ export default {
     open: '打开',
     samples: '示例',
     recent: '最近',
+    layers: '图层',
     zoomIn: '放大',
     zoomOut: '缩小',
     zoomExtents: '全图',
@@ -21,7 +22,6 @@ export default {
     clear: '清除',
     png: 'PNG',
     pdf: 'PDF',
-    layers: '图层',
     inspect: '结果',
     language: '语言',
     about: '关于',
@@ -53,6 +53,8 @@ export default {
     empty: '还没有本地记录。打开过的文件会留在这台浏览器里。',
     unavailable: '文件太大，没有缓存，请重新选择。',
     remove: '移除',
+    collapse: '收起最近文件',
+    expand: '展开最近文件',
   },
   layers: {
     title: '图层',
@@ -60,6 +62,10 @@ export default {
     showAll: '全部显示',
     frozen: '冻结',
     off: '关闭',
+  },
+  tabs: {
+    close: '关闭标签',
+    tooMany: '同时打开的图纸已达上限（{count} 张）。请先关闭一个标签。',
   },
   layouts: {
     model: '模型',

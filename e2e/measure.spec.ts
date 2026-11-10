@@ -6,15 +6,21 @@ test('opens a DXF sample and measures a 100-unit distance', async ({ page }) => 
   await page.getByTestId('sample-measure-fixture').click()
   await expect(page.getByTestId('file-name')).toContainText('measure-fixture.dxf')
   await expect(page.getByTestId('stage')).toHaveAttribute('data-view-ready', 'true')
+  await page.getByTestId('recent-collapse').click()
+  await page.getByTestId('zoom-extents').click()
 
   await expect
     .poll(async () => {
       return page.evaluate(() => {
         const start = window.lantu.worldToClient(0, 0)
         const end = window.lantu.worldToClient(100, 0)
-        if (!start || !end) return false
+        const host = document.querySelector('[data-testid="viewer-host"]')?.getBoundingClientRect()
+        if (!start || !end || !host) return false
         const inside = (point: { x: number; y: number }) =>
-          point.x > 8 && point.y > 8 && point.x < window.innerWidth - 8 && point.y < window.innerHeight - 8
+          point.x > host.left + 8 &&
+          point.y > host.top + 8 &&
+          point.x < host.right - 8 &&
+          point.y < host.bottom - 8
         return inside(start) && inside(end)
       })
     })

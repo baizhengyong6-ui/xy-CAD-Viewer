@@ -10,6 +10,7 @@ export default {
     open: 'Open',
     samples: 'Samples',
     recent: 'Recent',
+    layers: 'Layers',
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     zoomExtents: 'Extents',
@@ -21,7 +22,6 @@ export default {
     clear: 'Clear',
     png: 'PNG',
     pdf: 'PDF',
-    layers: 'Layers',
     inspect: 'Results',
     language: 'Language',
     about: 'About',
@@ -53,6 +53,8 @@ export default {
     empty: 'Nothing saved yet. Files you open stay in this browser.',
     unavailable: 'Too large to cache. Choose the file again.',
     remove: 'Remove',
+    collapse: 'Hide recent files',
+    expand: 'Show recent files',
   },
   layers: {
     title: 'Layers',
@@ -60,6 +62,10 @@ export default {
     showAll: 'Show all',
     frozen: 'Frozen',
     off: 'Off',
+  },
+  tabs: {
+    close: 'Close tab',
+    tooMany: 'Too many drawings are open (limit {count}). Close a tab first.',
   },
   layouts: {
     model: 'Model',
