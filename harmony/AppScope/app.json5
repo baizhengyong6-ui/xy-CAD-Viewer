@@ -2,8 +2,8 @@
   "app": {
     "bundleName": "com.xinyao.cadviewer",
     "vendor": "xinyao",
-    "versionCode": 30000,
-    "versionName": "0.3.0",
+    "versionCode": 30100,
+    "versionName": "0.3.1",
     "icon": "$media:app_icon",
     "label": "$string:app_name"
   }

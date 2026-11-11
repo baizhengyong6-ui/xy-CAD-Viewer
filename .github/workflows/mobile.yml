@@ -64,6 +64,11 @@ jobs:
         working-directory: android
         run: ./gradlew assembleRelease bundleRelease
 
+      - name: Name the release APK with the app version
+        run: |
+          ver=$(node -p "require('./package.json').version")
+          mv android/app/build/outputs/apk/release/app-release.apk "android/app/build/outputs/apk/release/XinyaoCADViewer_${ver}.apk"
+
       - uses: actions/upload-artifact@v4
         with:
           name: XinyaoCADViewer-android
@@ -76,5 +81,13 @@ jobs:
         if: github.ref_type == 'tag'
         with:
           tag_name: ${{ github.ref_name }}
-          files: android/app/build/outputs/apk/release/*.apk
+          name: 鑫垚CAD看图 ${{ github.ref_name }}
+          body: |
+            - 顶部标签可同时打开多张图纸。切换标签会回到该图纸的视图、图层和测量；关闭标签会释放这块图纸。
+            - 图层列表移到顶部工具栏的「图层」菜单。
+            - 左侧是最近打开的图纸（文件名和时间），可以收起；窄屏时变成抽屉。
+
+            未签名安装包。Windows 为 NSIS（.exe）和 MSI，macOS 为 universal DMG，Android 为 APK。
+            许可证：GPL-3.0-only（含 GNU LibreDWG）。
+          files: android/app/build/outputs/apk/release/XinyaoCADViewer_*.apk
           fail_on_unmatched_files: true
