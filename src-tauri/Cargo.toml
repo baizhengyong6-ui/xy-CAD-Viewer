@@ -1,6 +1,6 @@
 [package]
 name = "xinyao-cad-viewer"
-version = "0.3.1"
+version = "0.3.2"
 description = "Xinyao CAD Viewer (鑫垚CAD看图), GPL-3.0-only. Includes LibreDWG."
 authors = ["Xinyao CAD"]
 license = "GPL-3.0-only"

@@ -56,9 +56,8 @@ jobs:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: "鑫垚CAD看图 v__VERSION__"
           releaseBody: |
-            - 顶部标签可同时打开多张图纸。切换标签会回到该图纸的视图、图层和测量；关闭标签会释放这块图纸。
-            - 图层列表移到顶部工具栏的「图层」菜单。
-            - 左侧是最近打开的图纸（文件名和时间），可以收起；窄屏时变成抽屉。
+            测量时可以对象捕捉：端点、中点、圆心、交点、最近点、垂足、象限点。
+            F3 开关捕捉，按住 Shift 暂时关闭。触屏有放大镜，十字光标在指尖上方，孔径比鼠标更大。
 
             未签名安装包。Windows 为 NSIS（.exe）和 MSI，macOS 为 universal DMG，Android 为 APK。
             许可证：GPL-3.0-only（含 GNU LibreDWG）。
@@ -112,9 +111,8 @@ jobs:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: "鑫垚CAD看图 v__VERSION__"
           releaseBody: |
-            - 顶部标签可同时打开多张图纸。切换标签会回到该图纸的视图、图层和测量；关闭标签会释放这块图纸。
-            - 图层列表移到顶部工具栏的「图层」菜单。
-            - 左侧是最近打开的图纸（文件名和时间），可以收起；窄屏时变成抽屉。
+            测量时可以对象捕捉：端点、中点、圆心、交点、最近点、垂足、象限点。
+            F3 开关捕捉，按住 Shift 暂时关闭。触屏有放大镜，十字光标在指尖上方，孔径比鼠标更大。
 
             未签名安装包。Windows 为 NSIS（.exe）和 MSI，macOS 为 universal DMG，Android 为 APK。
             许可证：GPL-3.0-only（含 GNU LibreDWG）。
