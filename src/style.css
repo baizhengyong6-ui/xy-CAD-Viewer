@@ -119,6 +119,21 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   line-height: 1;
 }
 .layer-menu { position: relative; }
+.snap-controls { display: flex; }
+.snap-more { padding: 0.35rem 0.4rem; border-left: 0; border-radius: 0 8px 8px 0; }
+.snap-controls > button:first-child { border-radius: 8px 0 0 8px; }
+.snap-tip {
+  position: fixed;
+  z-index: 12;
+  pointer-events: none;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: rgba(20, 24, 22, 0.92);
+  color: var(--text);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
 .layer-pop {
   position: absolute;
   z-index: 9;

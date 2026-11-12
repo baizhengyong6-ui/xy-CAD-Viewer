@@ -16,13 +16,21 @@ const scaleDraft = ref('1')
 const showAbout = ref(false)
 const about = ref<DesktopInfo | null>(null)
 const layerMenu = ref<HTMLElement | null>(null)
+const snapMenu = ref<HTMLElement | null>(null)
 const compact = ref(false)
 const cad = useCadApp()
 const appVersion = APP_VERSION
 
 function onKeyDown(event: KeyboardEvent): void {
+  if (event.key === 'F3') {
+    event.preventDefault()
+    cad.toggleSnap()
+    return
+  }
+  if (event.key === 'Shift') cad.setSnapSuspended(true)
   if (event.key !== 'Escape') return
   cad.state.showLayerMenu = false
+  cad.state.showSnapMenu = false
   if (!cad.state.showSamples && !(compact.value && cad.state.showRecentPanel) && !showAbout.value) return
   cad.state.showSamples = false
   if (compact.value) cad.state.showRecentPanel = false
@@ -30,11 +38,25 @@ function onKeyDown(event: KeyboardEvent): void {
   event.stopPropagation()
 }
 
+function onKeyUp(event: KeyboardEvent): void {
+  if (event.key === 'Shift') cad.setSnapSuspended(false)
+}
+
 function onPointerDown(event: PointerEvent): void {
   const target = event.target
   if (!(target instanceof Node)) return
   if (layerMenu.value && !layerMenu.value.contains(target)) cad.state.showLayerMenu = false
+  if (snapMenu.value && !snapMenu.value.contains(target)) cad.state.showSnapMenu = false
 }
+
+const snapStatusText = computed(() => {
+  if (!cad.state.snapEnabled || cad.state.snapSuspended) return t('snap.off')
+  const kinds = cad.snapKindOrder
+    .filter((kind) => cad.state.snapKinds[kind])
+    .map((kind) => t(`snap.kinds.${kind}`))
+    .join(' · ')
+  return kinds ? t('snap.on', { kinds }) : t('snap.off')
+})
 
 function requestOpen(): void {
   if (isDesktopShell()) void cad.openNative()
@@ -49,6 +71,7 @@ async function openAbout(): Promise<void> {
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeyDown, true)
+  window.addEventListener('keyup', onKeyUp, true)
   window.addEventListener('pointerdown', onPointerDown, true)
   scaleDraft.value = String(cad.state.scale)
   const query = window.matchMedia('(max-width: 900px)')
@@ -66,6 +89,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeyDown, true)
+  window.removeEventListener('keyup', onKeyUp, true)
   window.removeEventListener('pointerdown', onPointerDown, true)
 })
 
@@ -219,6 +243,48 @@ function openedLabel(openedAt: number): string {
                   <span>{{ layer.name }}</span>
                 </label>
                 <em v-if="layer.isFrozen">{{ t('layers.frozen') }}</em>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <span class="sep" />
+        <div ref="snapMenu" class="layer-menu snap-controls">
+          <button
+            type="button"
+            data-testid="snap-toggle"
+            :class="{ on: cad.state.snapEnabled && !cad.state.snapSuspended }"
+            @click.stop="cad.toggleSnap()"
+          >
+            {{ t('toolbar.snap') }}
+          </button>
+          <button
+            type="button"
+            class="snap-more"
+            data-testid="snap-menu"
+            :aria-expanded="cad.state.showSnapMenu"
+            :aria-label="t('toolbar.snap')"
+            @click.stop="cad.state.showSnapMenu = !cad.state.showSnapMenu"
+          >
+            ▾
+          </button>
+          <div v-if="cad.state.showSnapMenu" class="layer-pop" data-testid="snap-pop" @click.stop>
+            <div class="panel-head">
+              <h2>{{ t('toolbar.snap') }}</h2>
+              <button type="button" class="text" @click="cad.toggleSnap()">
+                {{ cad.state.snapEnabled ? t('snap.disable') : t('snap.enable') }}
+              </button>
+            </div>
+            <ul class="layer-list">
+              <li v-for="kind in cad.snapKindOrder" :key="kind">
+                <label>
+                  <input
+                    type="checkbox"
+                    :data-testid="`snap-${kind}`"
+                    :checked="cad.state.snapKinds[kind]"
+                    @change="cad.setSnapKind(kind, ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span>{{ t(`snap.kinds.${kind}`) }}</span>
+                </label>
               </li>
             </ul>
           </div>
@@ -431,7 +497,7 @@ function openedLabel(openedAt: number): string {
       <span data-testid="file-name">{{ cad.state.fileName || t('status.noFile') }}</span>
       <span class="hint-inline">{{ hint }}</span>
       <span>{{ t('status.coords') }} {{ coordText() }}</span>
-      <span class="snap">{{ t('status.snap') }}</span>
+      <span class="snap" data-testid="snap-status">{{ snapStatusText }}</span>
       <span class="mobile-toggles">
         <button type="button" data-testid="recent-drawer" @click="cad.state.showRecentPanel = !cad.state.showRecentPanel">
           {{ t('toolbar.recent') }}

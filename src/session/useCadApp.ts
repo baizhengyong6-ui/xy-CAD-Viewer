@@ -18,7 +18,14 @@ import {
   type AcApMeasurementRecord,
   type AcTrView2d,
 } from '@mlightcad/cad-simple-viewer'
-import { AcDbOsnapMode, acdbOsnapModesToMask } from '@mlightcad/data-model'
+import {
+  SNAP_KIND_ORDER,
+  SNAP_STORAGE_KEY,
+  readSnapSettings,
+  snapMask,
+  type SnapKindFlags,
+  type SnapSettings,
+} from '../measure/osnapSettings'
 import { FontManager } from '@mlightcad/mtext-renderer'
 import { onBeforeUnmount, reactive } from 'vue'
 import { createDefaultDwgParser } from '../dwg/active'
@@ -154,6 +161,7 @@ function labelAt(record: AcApMeasurementRecord): Point2 {
 
 export function useCadApp() {
   const saved = readSettings()
+  const savedSnap = readSnapSettings(typeof localStorage === 'undefined' ? null : localStorage.getItem(SNAP_STORAGE_KEY))
   const state = reactive({
     ready: false,
     opening: false,
@@ -164,6 +172,10 @@ export function useCadApp() {
     tabs: [] as TabModel[],
     activeTabId: '',
     showLayerMenu: false,
+    showSnapMenu: false,
+    snapEnabled: savedSnap.enabled,
+    snapSuspended: false,
+    snapKinds: savedSnap.kinds,
     error: '',
     notice: '',
     tool: 'select' as ToolId,
@@ -216,6 +228,16 @@ export function useCadApp() {
 
   function documentForTab(id: string) {
     return openDocuments().find((doc) => tabIdFor(doc) === id)
+  }
+
+  function currentSnap(): SnapSettings {
+    return { enabled: state.snapEnabled, kinds: { ...state.snapKinds } }
+  }
+
+  function applySnap(save: boolean): void {
+    AcApSettingManager.instance.set('osnapModes', snapMask(currentSnap(), state.snapSuspended), { persist: false })
+    if (!save || typeof localStorage === 'undefined') return
+    localStorage.setItem(SNAP_STORAGE_KEY, JSON.stringify(currentSnap()))
   }
 
   function persistSettings(): void {
@@ -488,7 +510,7 @@ export function useCadApp() {
       state.measurements = []
       syncViewerUnits()
       const current = view()
-      configureTouchSnap(current)
+      configureTouchSnap(current, () => state.snapEnabled && !state.snapSuspended)
       if (current) {
         await current.waitUntilIdle(20000)
         current.zoomToFitDrawing()
@@ -634,13 +656,8 @@ export function useCadApp() {
       notificationCenter: false,
       webworkerFileUrls: { dwgParser, mtextRender: mtext },
     })
-    configureTouchSnap(view())
-    AcApSettingManager.instance.osnapModes = acdbOsnapModesToMask([
-      AcDbOsnapMode.EndPoint,
-      AcDbOsnapMode.MidPoint,
-      AcDbOsnapMode.Center,
-      AcDbOsnapMode.Intersection,
-    ])
+    configureTouchSnap(view(), () => state.snapEnabled && !state.snapSuspended)
+    applySnap(false)
     await AcApDocManager.instance.loadDefaultFonts(['simsun'])
     stopMeasure = subscribeMeasurements(() => refreshMeasurements())
     selectionListener = () => refreshProperties()
@@ -812,6 +829,21 @@ export function useCadApp() {
     openRecent,
     activateTab,
     closeTab,
+    toggleSnap() {
+      state.snapEnabled = !state.snapEnabled
+      state.showSnapMenu = false
+      applySnap(true)
+    },
+    setSnapKind(kind: keyof SnapKindFlags, on: boolean) {
+      state.snapKinds = { ...state.snapKinds, [kind]: on }
+      applySnap(true)
+    },
+    setSnapSuspended(suspended: boolean) {
+      if (state.snapSuspended === suspended) return
+      state.snapSuspended = suspended
+      applySnap(false)
+    },
+    snapKindOrder: SNAP_KIND_ORDER,
     async removeRecent(id: string) {
       await forgetRecent(id)
       state.recent = await listRecent()
