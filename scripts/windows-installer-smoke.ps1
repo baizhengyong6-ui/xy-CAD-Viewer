@@ -122,8 +122,10 @@ if ($script -notmatch '!insertmacro MUI_PAGE_DIRECTORY') {
 }
 $at = $script.IndexOf('!insertmacro MUI_PAGE_DIRECTORY')
 $before = $script.Substring([Math]::Max(0, $at - 180), [Math]::Min(180, $at))
-if ($before -notmatch 'SkipIf passive') {
-  Fail "directory page is not the passive-only skip: $before"
+# Contains, not -match: the generated script is multiline and the page name includes a space.
+if (-not $before.Contains('SkipIf passive')) {
+  $codes = ($before.ToCharArray() | Select-Object -Last 30 | ForEach-Object { [int]$_ }) -join ','
+  Fail "directory page is not the passive-only skip (codes $codes): $before"
 }
 if ($script -notmatch 'installer-hooks\.nsh') {
   Fail 'NSIS script does not include installer-hooks.nsh'
