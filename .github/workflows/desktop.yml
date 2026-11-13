@@ -43,6 +43,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Check installer identity
+        run: npx vitest run scripts/windows-installer.test.ts scripts/version.sync.test.ts
+
       # tagName is required. This tauri-action does not infer it from a tag push,
       # and without it the build succeeds but no Release assets are uploaded.
       - uses: tauri-apps/tauri-action@v0
@@ -64,6 +67,11 @@ jobs:
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: false
+
+      - name: Verify install directory and upgrade shortcuts
+        shell: pwsh
+        timeout-minutes: 20
+        run: ./scripts/windows-installer-smoke.ps1
 
       - name: Upload installer artifacts
         if: github.ref_type != 'tag'

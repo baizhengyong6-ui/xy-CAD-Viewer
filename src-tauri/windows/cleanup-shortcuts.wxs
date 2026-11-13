@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <!-- Links this fragment into the Tauri MSI. WixUI_InstallDir stays in the
+         main template. The script removes stale NSIS and MSI shortcuts and
+         uninstalls a previous NSIS registration before files are copied. -->
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="StaleShortcutCleanup" Guid="C4E8A1B7-2D5F-4E6A-9C31-7B0F8A2E4D19" Win64="yes">
+        <RegistryValue Root="HKCU" Key="Software\Xinyao\XinyaoCADViewer" Name="ShortcutCleanup" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Binary Id="CleanupShortcutsVbs" SourceFile="$(sys.SOURCEFILEDIR)remove-stale-shortcuts.vbs" />
+    <CustomAction Id="RemoveStaleShortcuts"
+                  BinaryKey="CleanupShortcutsVbs"
+                  VBScriptCall="CleanupShortcuts"
+                  Execute="immediate"
+                  Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="RemoveStaleShortcuts" Before="InstallInitialize">1</Custom>
+    </InstallExecuteSequence>
+  </Fragment>
+</Wix>

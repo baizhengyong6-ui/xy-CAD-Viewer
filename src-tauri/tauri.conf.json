@@ -79,10 +79,14 @@
         "installMode": "currentUser",
         "languages": ["SimpChinese", "English"],
         "displayLanguageSelector": true,
-        "startMenuFolder": "XinyaoCADViewer"
+        "startMenuFolder": "XinyaoCADViewer",
+        "installerHooks": "windows/installer-hooks.nsh"
       },
       "wix": {
-        "language": ["zh-CN", "en-US"]
+        "language": ["zh-CN", "en-US"],
+        "upgradeCode": "FD8004CE-56C7-5EE2-94DA-AB2F916D3ABD",
+        "fragmentPaths": ["windows/cleanup-shortcuts.wxs"],
+        "componentRefs": ["StaleShortcutCleanup"]
       }
     }
   }
