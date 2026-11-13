@@ -9,8 +9,8 @@ function read(path: string): string {
   return readFileSync(resolve(root, path), 'utf8')
 }
 
-describe('version 0.3.2 is the same everywhere installers read it', () => {
-  const expected = '0.3.2'
+describe('version 0.3.3 is the same everywhere installers read it', () => {
+  const expected = '0.3.3'
 
   it('matches package.json, Tauri, Android, and HarmonyOS', () => {
     expect(JSON.parse(read('package.json')).version).toBe(expected)

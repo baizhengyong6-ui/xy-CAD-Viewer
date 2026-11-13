@@ -83,8 +83,8 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: 鑫垚CAD看图 ${{ github.ref_name }}
           body: |
-            测量时可以对象捕捉：端点、中点、圆心、交点、最近点、垂足、象限点。
-            F3 开关捕捉，按住 Shift 暂时关闭。触屏有放大镜，十字光标在指尖上方，孔径比鼠标更大。
+            升级安装会清掉旧的桌面和开始菜单快捷方式，只保留当前这一套。
+            安装时可以选择目录：NSIS 安装包有目录页，MSI 可以选择安装文件夹。升级时默认使用上次的目录。
 
             未签名安装包。Windows 为 NSIS（.exe）和 MSI，macOS 为 universal DMG，Android 为 APK。
             许可证：GPL-3.0-only（含 GNU LibreDWG）。
