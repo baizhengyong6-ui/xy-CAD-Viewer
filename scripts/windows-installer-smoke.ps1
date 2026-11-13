@@ -122,8 +122,10 @@ if ($script -notmatch '!insertmacro MUI_PAGE_DIRECTORY') {
 }
 $at = $script.IndexOf('!insertmacro MUI_PAGE_DIRECTORY')
 $before = $script.Substring([Math]::Max(0, $at - 180), [Math]::Min(180, $at))
-# Contains, not -match: the generated script is multiline and the page name includes a space.
-if (-not $before.Contains('SkipIf passive')) {
+# Tauri names the pre-function SkipIfPassive with no space and a capital P.
+# That function aborts only when the installer is passive, so the directory page is shown otherwise.
+$passiveSkip = 'SkipIf' + 'Passive'
+if (-not $before.Contains($passiveSkip)) {
   $codes = ($before.ToCharArray() | Select-Object -Last 30 | ForEach-Object { [int]$_ }) -join ','
   Fail "directory page is not the passive-only skip (codes $codes): $before"
 }
