@@ -13,11 +13,11 @@
     <Binary Id="CleanupShortcutsVbs" SourceFile="$(sys.SOURCEFILEDIR)remove-stale-shortcuts.vbs" />
     <CustomAction Id="RemoveStaleShortcuts"
                   BinaryKey="CleanupShortcutsVbs"
-                  VBScriptCall=""
+                  VBScriptCall="CleanupShortcuts"
                   Execute="immediate"
                   Return="ignore" />
     <InstallExecuteSequence>
-      <CustomAction Id="RemoveStaleShortcuts" Before="InstallInitialize">1</CustomAction>
+      <Custom Action="RemoveStaleShortcuts" Before="InstallInitialize">1</Custom>
     </InstallExecuteSequence>
   </Fragment>
 </Wix>
