@@ -113,6 +113,21 @@ function Read-MsiColumn([string]$path, [string]$sql) {
   return ,$values.ToArray()
 }
 
+function As-TextList($value) {
+  $items = New-Object System.Collections.Generic.List[string]
+  foreach ($item in @($value)) {
+    if ($null -eq $item) { continue }
+    if ($item -is [System.Array]) {
+      foreach ($inner in $item) {
+        if ($null -ne $inner) { [void]$items.Add([string]$inner) }
+      }
+    } else {
+      [void]$items.Add([string]$item)
+    }
+  }
+  return ,$items.ToArray()
+}
+
 Write-Host 'checking generated NSIS script'
 $nsi = Get-ChildItem -Path (Join-Path $repo 'src-tauri\target\release\nsis') -Recurse -Filter installer.nsi |
   Select-Object -First 1
@@ -139,18 +154,17 @@ Write-Host 'checking MSI directory UI and upgrade code'
 $msi = Get-ChildItem -Path (Join-Path $repo 'src-tauri\target\release\bundle\msi') -Filter *.msi |
   Select-Object -First 1
 if (-not $msi) { Fail 'MSI was not built' }
-$upgrade = @(Read-MsiColumn $msi.FullName "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='UpgradeCode'")
-$upgradeText = ($upgrade | ForEach-Object { "$_" }) -join ','
+$upgradeText = (@(As-TextList (Read-MsiColumn $msi.FullName "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='UpgradeCode'"))) -join ','
 if ($upgradeText.Trim('{}').ToLowerInvariant() -notmatch 'fd8004ce-56c7-5ee2-94da-ab2f916d3abd') {
   Fail "unexpected UpgradeCode: $upgradeText"
 }
-$mode = @(Read-MsiColumn $msi.FullName "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='WixUI_Mode'")
-if (($mode -join ',') -ne 'InstallDir') {
+$mode = @(As-TextList (Read-MsiColumn $msi.FullName "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='WixUI_Mode'"))
+if ($mode -notcontains 'InstallDir') {
   Fail "MSI UI mode is not InstallDir: $($mode -join ',')"
 }
-$dirDialog = @(Read-MsiColumn $msi.FullName "SELECT ``Dialog`` FROM ``Dialog`` WHERE ``Dialog``='InstallDirDlg'")
-if ($dirDialog.Count -lt 1 -or [string]$dirDialog[0] -ne 'InstallDirDlg') { Fail 'MSI has no InstallDirDlg' }
-$nextArgs = @(Read-MsiColumn $msi.FullName "SELECT ``Argument`` FROM ``ControlEvent`` WHERE ``Dialog_``='LicenseAgreementDlg' AND ``Control_``='Next' AND ``Event``='NewDialog'")
+$dirDialog = @(As-TextList (Read-MsiColumn $msi.FullName "SELECT ``Dialog`` FROM ``Dialog`` WHERE ``Dialog``='InstallDirDlg'"))
+if ($dirDialog -notcontains 'InstallDirDlg') { Fail 'MSI has no InstallDirDlg' }
+$nextArgs = @(As-TextList (Read-MsiColumn $msi.FullName "SELECT ``Argument`` FROM ``ControlEvent`` WHERE ``Dialog_``='LicenseAgreementDlg' AND ``Control_``='Next' AND ``Event``='NewDialog'"))
 if ($nextArgs -notcontains 'InstallDirDlg') {
   Fail "license page does not open InstallDirDlg: $($nextArgs -join ', ')"
 }
