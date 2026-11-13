@@ -42,6 +42,13 @@ function Normalize([string]$path) {
   return [IO.Path]::GetFullPath($path).TrimEnd('\').ToLowerInvariant()
 }
 
+function Get-ChineseShortcutName {
+  # Built from code points so the script stays ASCII and Windows can save the link.
+  return (-join @(
+    [char]0x946B, [char]0x579A, [char]0x43, [char]0x41, [char]0x44, [char]0x770B, [char]0x56FE
+  )) + '.lnk'
+}
+
 function Get-AppLinks {
   $roots = @(
     [Environment]::GetFolderPath('Desktop'),
@@ -49,7 +56,7 @@ function Get-AppLinks {
     (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'),
     (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs')
   )
-  $names = @('XinyaoCADViewer.lnk', '鑫垚CAD看图.lnk')
+  $names = @('XinyaoCADViewer.lnk', (Get-ChineseShortcutName))
   $shell = New-Object -ComObject WScript.Shell
   $found = @()
   foreach ($root in $roots) {
@@ -184,7 +191,7 @@ $shell = New-Object -ComObject WScript.Shell
 $planted = @(
   (Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'XinyaoCADViewer.lnk'),
   (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\XinyaoCADViewer\XinyaoCADViewer.lnk'),
-  (Join-Path ([Environment]::GetFolderPath('Desktop')) '鑫垚CAD看图.lnk')
+  (Join-Path ([Environment]::GetFolderPath('Desktop')) (Get-ChineseShortcutName))
 )
 foreach ($path in $planted) {
   $parent = Split-Path -Parent $path
