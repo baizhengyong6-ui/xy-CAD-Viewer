@@ -96,20 +96,21 @@ function Assert-ShortcutSet([string]$exe) {
   if ($menu.Count -ne 1) { Fail "expected one Start Menu shortcut, found $($menu.Count)" }
 }
 
-function Read-MsiRows([string]$path, [string]$sql) {
+function Read-MsiColumn([string]$path, [string]$sql) {
   $installer = New-Object -ComObject WindowsInstaller.Installer
-  $db = $installer.OpenDatabase($path, 0)
-  $view = $db.OpenView($sql)
-  $view.Execute()
-  $rows = New-Object System.Collections.Generic.List[object]
-  while ($record = $view.Fetch()) {
-    $count = $record.FieldCount
-    $values = New-Object System.Collections.Generic.List[string]
-    for ($i = 1; $i -le $count; $i++) { [void]$values.Add($record.StringData($i)) }
-    [void]$rows.Add($values)
+  $database = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($path, 0))
+  $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database, @($sql))
+  $null = $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
+  $values = New-Object System.Collections.Generic.List[string]
+  while ($true) {
+    $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
+    if ($null -eq $record) { break }
+    $text = $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, 1)
+    [void]$values.Add([string]$text)
   }
-  $view.Close()
-  return $rows
+  $null = $view.GetType().InvokeMember('Close', 'InvokeMethod', $null, $view, $null)
+  # The comma keeps a one-row result from being unrolled by PowerShell.
+  return ,$values.ToArray()
 }
 
 Write-Host 'checking generated NSIS script'
@@ -138,18 +139,18 @@ Write-Host 'checking MSI directory UI and upgrade code'
 $msi = Get-ChildItem -Path (Join-Path $repo 'src-tauri\target\release\bundle\msi') -Filter *.msi |
   Select-Object -First 1
 if (-not $msi) { Fail 'MSI was not built' }
-$upgrade = Read-MsiRows $msi.FullName "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='UpgradeCode'"
-if ($upgrade.Count -lt 1 -or $upgrade[0][0].Trim('{}').ToLowerInvariant() -ne 'fd8004ce-56c7-5ee2-94da-ab2f916d3abd') {
-  Fail "unexpected UpgradeCode: $($upgrade | Out-String)"
+$upgrade = @(Read-MsiColumn $msi.FullName "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='UpgradeCode'")
+$upgradeText = ($upgrade | ForEach-Object { "$_" }) -join ','
+if ($upgradeText.Trim('{}').ToLowerInvariant() -notmatch 'fd8004ce-56c7-5ee2-94da-ab2f916d3abd') {
+  Fail "unexpected UpgradeCode: $upgradeText"
 }
-$mode = Read-MsiRows $msi.FullName "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='WixUI_Mode'"
-if ($mode.Count -lt 1 -or $mode[0][0] -ne 'InstallDir') {
-  Fail "MSI UI mode is not InstallDir: $($mode | Out-String)"
+$mode = @(Read-MsiColumn $msi.FullName "SELECT ``Value`` FROM ``Property`` WHERE ``Property``='WixUI_Mode'")
+if (($mode -join ',') -ne 'InstallDir') {
+  Fail "MSI UI mode is not InstallDir: $($mode -join ',')"
 }
-$dirDialog = Read-MsiRows $msi.FullName "SELECT ``Dialog`` FROM ``Dialog`` WHERE ``Dialog``='InstallDirDlg'"
-if ($dirDialog.Count -lt 1) { Fail 'MSI has no InstallDirDlg' }
-$next = Read-MsiRows $msi.FullName "SELECT ``Argument`` FROM ``ControlEvent`` WHERE ``Dialog_``='LicenseAgreementDlg' AND ``Control_``='Next' AND ``Event``='NewDialog'"
-$nextArgs = @($next | ForEach-Object { $_[0] })
+$dirDialog = @(Read-MsiColumn $msi.FullName "SELECT ``Dialog`` FROM ``Dialog`` WHERE ``Dialog``='InstallDirDlg'")
+if ($dirDialog.Count -lt 1 -or [string]$dirDialog[0] -ne 'InstallDirDlg') { Fail 'MSI has no InstallDirDlg' }
+$nextArgs = @(Read-MsiColumn $msi.FullName "SELECT ``Argument`` FROM ``ControlEvent`` WHERE ``Dialog_``='LicenseAgreementDlg' AND ``Control_``='Next' AND ``Event``='NewDialog'")
 if ($nextArgs -notcontains 'InstallDirDlg') {
   Fail "license page does not open InstallDirDlg: $($nextArgs -join ', ')"
 }
