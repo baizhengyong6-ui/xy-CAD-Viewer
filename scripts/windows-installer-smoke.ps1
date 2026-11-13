@@ -188,6 +188,10 @@ Invoke-Raw $downloaded "/S /D=$oldDir" @(0)
 if (-not (Test-Path -LiteralPath $oldExe)) { Fail "v0.3.2 did not install to $oldDir" }
 
 $shell = New-Object -ComObject WScript.Shell
+$tempLink = Join-Path $env:TEMP 'xinyao-plant.lnk'
+$link = $shell.CreateShortcut($tempLink)
+$link.TargetPath = $oldExe
+$link.Save()
 $planted = @(
   (Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'XinyaoCADViewer.lnk'),
   (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\XinyaoCADViewer\XinyaoCADViewer.lnk'),
@@ -195,10 +199,9 @@ $planted = @(
 )
 foreach ($path in $planted) {
   $parent = Split-Path -Parent $path
-  if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
-  $link = $shell.CreateShortcut($path)
-  $link.TargetPath = $oldExe
-  $link.Save()
+  if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+  # WScript.Shell cannot save a non-ASCII shortcut name. Copy the link with .NET instead.
+  [System.IO.File]::Copy($tempLink, $path, $true)
 }
 
 $setup = Get-ChildItem -Path (Join-Path $repo 'src-tauri\target\release\bundle\nsis') -Filter *-setup.exe |
