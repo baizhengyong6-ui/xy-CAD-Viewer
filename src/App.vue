@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { formatChord, isTypingTarget, matchShortcut, SHORTCUT_HINTS, type ShortcutAction } from './input/shortcuts'
 import { SAMPLE_FILES, useCadApp, type MeasureRow } from './session/useCadApp'
 import { formatOpenedAt } from './session/tabs'
 import { fetchAppInfo, isDesktopShell, type DesktopInfo } from './shell/desktop'
@@ -14,6 +15,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const dragging = ref(false)
 const scaleDraft = ref('1')
 const showAbout = ref(false)
+const showShortcuts = ref(false)
 const about = ref<DesktopInfo | null>(null)
 const layerMenu = ref<HTMLElement | null>(null)
 const snapMenu = ref<HTMLElement | null>(null)
@@ -21,21 +23,141 @@ const compact = ref(false)
 const cad = useCadApp()
 const appVersion = APP_VERSION
 
-function onKeyDown(event: KeyboardEvent): void {
-  if (event.key === 'F3') {
+const macShortcuts = computed(() => {
+  if (typeof navigator === 'undefined') return false
+  const nav = navigator as Navigator & { userAgentData?: { platform?: string } }
+  const platform = nav.userAgentData?.platform || navigator.platform || ''
+  return /mac|iphone|ipad|ipod/i.test(platform)
+})
+
+function shortcutTitle(action: ShortcutAction): string {
+  const hint = SHORTCUT_HINTS.find((item) => item.action === action)
+  if (!hint) return ''
+  return `${t(hint.labelKey)} (${formatChord(hint.keys, macShortcuts.value)})`
+}
+
+function buttonChord(action: ShortcutAction): string {
+  const hint = SHORTCUT_HINTS.find((item) => item.action === action)
+  if (!hint || (hint.keys.length > 1 && action !== 'snap')) return ''
+  return formatChord(hint.keys, macShortcuts.value)
+}
+
+function runShortcut(action: ShortcutAction): void {
+  switch (action) {
+    case 'open':
+      requestOpen()
+      break
+    case 'samples':
+      cad.state.showSamples = true
+      break
+    case 'recent':
+      cad.state.showRecentPanel = !cad.state.showRecentPanel
+      break
+    case 'snap':
+      cad.toggleSnap()
+      break
+    case 'pan':
+      void cad.runTool('pan')
+      break
+    case 'zoom-in':
+      cad.zoomBy(1.25)
+      break
+    case 'zoom-out':
+      cad.zoomBy(1 / 1.25)
+      break
+    case 'zoom-extents':
+      cad.zoomExtents()
+      break
+    case 'distance':
+      void cad.runTool('distance')
+      break
+    case 'area':
+      void cad.runTool('area')
+      break
+    case 'angle':
+      void cad.runTool('angle')
+      break
+    case 'arc':
+      void cad.runTool('arc')
+      break
+    case 'clear':
+      cad.clearMeasurements()
+      break
+    case 'png':
+      void cad.exportPng()
+      break
+    case 'pdf':
+      void cad.exportPdf()
+      break
+    case 'help':
+      showShortcuts.value = true
+      break
+    case 'escape':
+      break
+  }
+}
+
+function handleEscape(event: KeyboardEvent): void {
+  if (showShortcuts.value) {
+    showShortcuts.value = false
     event.preventDefault()
-    cad.toggleSnap()
+    event.stopPropagation()
     return
   }
-  if (event.key === 'Shift') cad.setSnapSuspended(true)
-  if (event.key !== 'Escape') return
   cad.state.showLayerMenu = false
   cad.state.showSnapMenu = false
-  if (!cad.state.showSamples && !(compact.value && cad.state.showRecentPanel) && !showAbout.value) return
-  cad.state.showSamples = false
-  if (compact.value) cad.state.showRecentPanel = false
-  showAbout.value = false
+  if (showAbout.value) {
+    showAbout.value = false
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  if (cad.state.showSamples) {
+    cad.state.showSamples = false
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  if (compact.value && cad.state.showRecentPanel) {
+    cad.state.showRecentPanel = false
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  if (cad.state.tool !== 'select' || cad.isCommandActive()) {
+    cad.cancelTool()
+    event.preventDefault()
+    event.stopPropagation()
+  }
+}
+
+function onKeyDown(event: KeyboardEvent): void {
+  if (event.key === 'Shift') cad.setSnapSuspended(true)
+  const action = matchShortcut({
+    key: event.key,
+    code: event.code,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+    altKey: event.altKey,
+    shiftKey: event.shiftKey,
+    repeat: event.repeat,
+    composing: event.isComposing || event.keyCode === 229,
+    typing: isTypingTarget(event.target),
+    commandActive: cad.isCommandActive(),
+  })
+  if (!action) return
+  if (action === 'escape') {
+    handleEscape(event)
+    return
+  }
+  if (showShortcuts.value || showAbout.value || cad.state.showSamples) {
+    event.preventDefault()
+    event.stopPropagation()
+    return
+  }
+  event.preventDefault()
   event.stopPropagation()
+  runShortcut(action)
 }
 
 function onKeyUp(event: KeyboardEvent): void {
@@ -199,19 +321,22 @@ function openedLabel(openedAt: number): string {
       </div>
 
       <div class="tools">
-        <button type="button" data-testid="open-file" @click="requestOpen()">
+        <button type="button" data-testid="open-file" :title="shortcutTitle('open')" @click="requestOpen()">
           {{ t('toolbar.open') }}
         </button>
-        <button type="button" data-testid="open-samples" @click="cad.state.showSamples = true">
+        <button type="button" data-testid="open-samples" :title="shortcutTitle('samples')" @click="cad.state.showSamples = true">
           {{ t('toolbar.samples') }}
+          <kbd>{{ buttonChord('samples') }}</kbd>
         </button>
         <button
           type="button"
           data-testid="open-recent"
+          :title="shortcutTitle('recent')"
           :aria-expanded="cad.state.showRecentPanel"
           @click="cad.state.showRecentPanel = !cad.state.showRecentPanel"
         >
           {{ t('toolbar.recent') }}
+          <kbd>{{ buttonChord('recent') }}</kbd>
         </button>
         <span class="sep" />
         <div ref="layerMenu" class="layer-menu">
@@ -253,9 +378,11 @@ function openedLabel(openedAt: number): string {
             type="button"
             data-testid="snap-toggle"
             :class="{ on: cad.state.snapEnabled && !cad.state.snapSuspended }"
+            :title="shortcutTitle('snap')"
             @click.stop="cad.toggleSnap()"
           >
             {{ t('toolbar.snap') }}
+            <kbd>{{ buttonChord('snap') }}</kbd>
           </button>
           <button
             type="button"
@@ -290,60 +417,83 @@ function openedLabel(openedAt: number): string {
           </div>
         </div>
         <span class="sep" />
-        <button type="button" :class="{ on: cad.state.tool === 'pan' }" @click="cad.runTool('pan')">
+        <button
+          type="button"
+          data-testid="tool-pan"
+          :class="{ on: cad.state.tool === 'pan' }"
+          :title="shortcutTitle('pan')"
+          @click="cad.runTool('pan')"
+        >
           {{ t('toolbar.pan') }}
+          <kbd>{{ buttonChord('pan') }}</kbd>
         </button>
-        <button type="button" data-testid="zoom-out" @click="cad.zoomBy(1 / 1.25)">
+        <button type="button" data-testid="zoom-out" :title="shortcutTitle('zoom-out')" @click="cad.zoomBy(1 / 1.25)">
           {{ t('toolbar.zoomOut') }}
+          <kbd>{{ buttonChord('zoom-out') }}</kbd>
         </button>
-        <button type="button" data-testid="zoom-in" @click="cad.zoomBy(1.25)">
+        <button type="button" data-testid="zoom-in" :title="shortcutTitle('zoom-in')" @click="cad.zoomBy(1.25)">
           {{ t('toolbar.zoomIn') }}
+          <kbd>{{ buttonChord('zoom-in') }}</kbd>
         </button>
-        <button type="button" data-testid="zoom-extents" @click="cad.zoomExtents()">
+        <button type="button" data-testid="zoom-extents" :title="shortcutTitle('zoom-extents')" @click="cad.zoomExtents()">
           {{ t('toolbar.zoomExtents') }}
+          <kbd>{{ buttonChord('zoom-extents') }}</kbd>
         </button>
         <span class="sep" />
         <button
           type="button"
           data-testid="tool-distance"
           :class="{ on: cad.state.tool === 'distance' }"
+          :title="shortcutTitle('distance')"
           @click="cad.runTool('distance')"
         >
           {{ t('toolbar.distance') }}
+          <kbd>{{ buttonChord('distance') }}</kbd>
         </button>
         <button
           type="button"
           data-testid="tool-area"
           :class="{ on: cad.state.tool === 'area' }"
+          :title="shortcutTitle('area')"
           @click="cad.runTool('area')"
         >
           {{ t('toolbar.area') }}
+          <kbd>{{ buttonChord('area') }}</kbd>
         </button>
         <button
           type="button"
           data-testid="tool-angle"
           :class="{ on: cad.state.tool === 'angle' }"
+          :title="shortcutTitle('angle')"
           @click="cad.runTool('angle')"
         >
           {{ t('toolbar.angle') }}
+          <kbd>{{ buttonChord('angle') }}</kbd>
         </button>
         <button
           type="button"
           data-testid="tool-arc"
           :class="{ on: cad.state.tool === 'arc' }"
+          :title="shortcutTitle('arc')"
           @click="cad.runTool('arc')"
         >
           {{ t('toolbar.arc') }}
+          <kbd>{{ buttonChord('arc') }}</kbd>
         </button>
-        <button type="button" data-testid="clear-measures" @click="cad.clearMeasurements()">
+        <button type="button" data-testid="clear-measures" :title="shortcutTitle('clear')" @click="cad.clearMeasurements()">
           {{ t('toolbar.clear') }}
         </button>
         <span class="sep" />
-        <button type="button" data-testid="export-png" @click="cad.exportPng()">{{ t('toolbar.png') }}</button>
-        <button type="button" data-testid="export-pdf" @click="cad.exportPdf()">{{ t('toolbar.pdf') }}</button>
+        <button type="button" data-testid="export-png" :title="shortcutTitle('png')" @click="cad.exportPng()">
+          {{ t('toolbar.png') }}
+        </button>
+        <button type="button" data-testid="export-pdf" :title="shortcutTitle('pdf')" @click="cad.exportPdf()">
+          {{ t('toolbar.pdf') }}
+        </button>
       </div>
 
       <div class="locale">
+        <button type="button" data-testid="open-shortcuts" @click="showShortcuts = true">{{ t('toolbar.shortcuts') }}</button>
         <button type="button" data-testid="about" @click="openAbout()">{{ t('toolbar.about') }}</button>
         <button type="button" :class="{ on: locale === 'zh-CN' }" @click="cad.setViewerLocale('zh-CN')">中文</button>
         <button type="button" :class="{ on: locale === 'en' }" @click="cad.setViewerLocale('en')">EN</button>
@@ -468,7 +618,7 @@ function openedLabel(openedAt: number): string {
             <button v-for="preset in [1, 10, 50, 100, 200]" :key="preset" type="button" :class="{ on: cad.state.scale === preset }" @click="applyPreset(preset)">
               1:{{ preset }}
             </button>
-            <input v-model="scaleDraft" inputmode="decimal" @change="commitScale" />
+            <input v-model="scaleDraft" data-testid="scale-input" inputmode="decimal" @change="commitScale" />
           </div>
           <p class="muted scale-hint">{{ t('units.scaleHint') }}</p>
           <p v-if="cad.state.measurements.length === 0" class="muted">{{ t('measure.empty') }}</p>
@@ -530,6 +680,20 @@ function openedLabel(openedAt: number): string {
           {{ t(sample.label) }}
         </button>
         <button type="button" class="text" @click="cad.state.showSamples = false">{{ t('common.close') }}</button>
+      </div>
+    </div>
+
+    <div v-if="showShortcuts" class="modal" @click.self="showShortcuts = false">
+      <div class="sheet shortcuts-sheet" role="dialog" aria-modal="true" data-testid="shortcuts-dialog" :aria-label="t('shortcuts.title')">
+        <h2>{{ t('shortcuts.title') }}</h2>
+        <ul class="shortcut-list">
+          <li v-for="hint in SHORTCUT_HINTS" :key="hint.labelKey">
+            <kbd>{{ formatChord(hint.keys, macShortcuts) }}</kbd>
+            <span>{{ t(hint.labelKey) }}</span>
+          </li>
+        </ul>
+        <p class="muted">{{ t('shortcuts.typing') }}</p>
+        <button type="button" class="text" @click="showShortcuts = false">{{ t('common.close') }}</button>
       </div>
     </div>
 

@@ -33,6 +33,39 @@ button.on, button.primary {
   color: var(--accent-ink);
   border-color: transparent;
 }
+button kbd, .shortcut-list kbd {
+  margin-left: 0.35rem;
+  padding: 0 0.28rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+button.on kbd {
+  color: var(--accent-ink);
+  border-color: transparent;
+  background: transparent;
+}
+.shortcut-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.28rem;
+}
+.shortcut-list li {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  align-items: center;
+  gap: 0.6rem;
+}
+.shortcut-list kbd {
+  margin-left: 0;
+  justify-self: start;
+}
 button.text { background: transparent; border-color: transparent; color: var(--muted); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -293,7 +326,8 @@ select, .scale-row input {
   background: rgba(0, 0, 0, 0.45);
   display: grid;
   place-items: center;
-  z-index: 7;
+  /* Above the viewer's in-canvas toolbar (z-index 30) and mobile command bar (40). */
+  z-index: 50;
   padding: 1rem;
 }
 .sheet {
@@ -307,6 +341,11 @@ select, .scale-row input {
   gap: 0.45rem;
 }
 .sheet button { text-align: left; }
+.shortcuts-sheet {
+  width: min(22rem, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+}
 .recent-row small { display: block; color: var(--muted); }
 .toast {
   position: fixed;
@@ -369,4 +408,5 @@ select, .scale-row input {
   .workspace { position: relative; }
   .mobile-toggles { display: flex; }
   .statusbar .snap { display: none; }
+  .tools kbd { display: none; }
 }

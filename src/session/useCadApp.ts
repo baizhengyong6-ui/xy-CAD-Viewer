@@ -589,6 +589,24 @@ export function useCadApp() {
     state.tool = tool
   }
 
+  function isCommandActive(): boolean {
+    try {
+      return Boolean(AcApDocManager.instance.editor.isActive)
+    } catch {
+      return false
+    }
+  }
+
+  function cancelTool(): void {
+    if (!state.hasDrawing) return
+    try {
+      AcApDocManager.instance.editor.cancelActiveInput()
+    } catch {
+      // The viewer is not mounted yet.
+    }
+    setNavigation('select')
+  }
+
   async function runTool(tool: ToolId): Promise<void> {
     if (!state.hasDrawing) {
       state.error = translate('errors.empty')
@@ -874,6 +892,8 @@ export function useCadApp() {
       current.flyTo({ x: center.x, y: center.y }, current.internalCamera.zoom * factor)
     },
     runTool,
+    isCommandActive,
+    cancelTool,
     clearMeasurements() {
       const current = view()
       if (!current) return
