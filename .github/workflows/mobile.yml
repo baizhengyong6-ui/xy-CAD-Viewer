@@ -83,8 +83,12 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: 鑫垚CAD看图 ${{ github.ref_name }}
           body: |
-            升级安装会清掉旧的桌面和开始菜单快捷方式，只保留当前这一套。
-            安装时可以选择目录：NSIS 安装包有目录页，MSI 可以选择安装文件夹。升级时默认使用上次的目录。
+            看图和测量可以用键盘。工具栏按钮上标出按键，右上角「快捷键」或按 ? 打开完整列表。
+            Ctrl/⌘+O 打开，S 示例，R 最近文件。F 全图，+ 和 - 缩放，P 平移。
+            D、A、N、L 分别测量距离、面积、角度、弧长，Shift+C 清除。
+            Ctrl/⌘+E 导出 PNG，Ctrl/⌘+Shift+E 导出 PDF。
+            F3 开关捕捉，按住 Shift 暂时关闭。Esc 取消当前测量或平移，并关闭面板。
+            在输入框里打字，或命令行里已经有文字时，单键不会抢走输入。测量取点过程中仍可用 F、+、- 和 F3。
 
             未签名安装包。Windows 为 NSIS（.exe）和 MSI，macOS 为 universal DMG，Android 为 APK。
             许可证：GPL-3.0-only（含 GNU LibreDWG）。
