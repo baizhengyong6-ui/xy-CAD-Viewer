@@ -31,17 +31,13 @@ import { onBeforeUnmount, reactive } from 'vue'
 import { createDefaultDwgParser } from '../dwg/active'
 import { i18n } from '../i18n'
 import {
-  applyScale,
-  arcLengthFromPoints,
-  convertArea,
-  convertLength,
-  distance,
-  formatNumber,
-  interiorAngle,
-  polygonArea,
-  unitSymbol,
-  type Point2,
-} from '../measure/math'
+  formatAngle,
+  formatArea,
+  formatLength,
+  formatMeasurementCopy,
+  formatPoint,
+} from '../measure/format'
+import { arcLengthFromPoints, distance, interiorAngle, polygonArea, type Point2 } from '../measure/math'
 import { cadDataBaseUrl, publicUrl } from '../runtime/assets'
 import { forgetRecent, listRecent, loadRecent, rememberFile, type RecentFile } from '../storage/recent'
 import { captureView, dataUrlToBytes, downloadDataUrl, downloadPdf, renderPdfBytes, type ExportLabel } from '../viewer/exportImage'
@@ -263,26 +259,21 @@ export function useCadApp() {
     }
   }
 
-  function targetUnit(): number {
-    if (state.unit >= 0) return state.unit
-    const drawing = drawingUnits()
-    return drawing > 0 ? drawing : 0
+  function displayOptions(scaled: boolean) {
+    return {
+      drawingUnit: drawingUnits(),
+      displayUnit: state.unit,
+      precision: state.precision,
+      ...(scaled ? { scale: state.scale } : {}),
+    }
   }
 
-  function formatLength(value: number): string {
-    const shown = applyScale(convertLength(value, drawingUnits(), targetUnit()), state.scale)
-    const symbol = unitSymbol(targetUnit())
-    return symbol ? `${formatNumber(shown, state.precision)} ${symbol}` : formatNumber(shown, state.precision)
+  function formatShownLength(value: number): string {
+    return formatLength(value, displayOptions(true))
   }
 
-  function formatArea(value: number): string {
-    const shown = applyScale(convertArea(value, drawingUnits(), targetUnit()), state.scale * state.scale)
-    const symbol = unitSymbol(targetUnit())
-    return symbol ? `${formatNumber(shown, state.precision)} ${symbol}²` : formatNumber(shown, state.precision)
-  }
-
-  function formatAngle(radians: number): string {
-    return `${formatNumber((radians * 180) / Math.PI, state.precision)}°`
+  function formatShownArea(value: number): string {
+    return formatArea(value, displayOptions(true))
   }
 
   function refreshMeasurements(): void {
@@ -310,15 +301,15 @@ export function useCadApp() {
     let scaled = ''
     if (geometry.type === 'distance') {
       const raw = distance(pointOf(geometry.start), pointOf(geometry.end))
-      drawing = unscaledLength(raw)
-      scaled = formatLength(raw)
+      drawing = formatLength(raw, displayOptions(false))
+      scaled = formatShownLength(raw)
     } else if (geometry.type === 'area') {
       const raw = polygonArea(geometry.points.map(pointOf))
-      drawing = unscaledArea(raw)
-      scaled = formatArea(raw)
+      drawing = formatArea(raw, displayOptions(false))
+      scaled = formatShownArea(raw)
     } else if (geometry.type === 'angle') {
       const raw = interiorAngle(pointOf(geometry.arm1), pointOf(geometry.vertex), pointOf(geometry.arm2))
-      drawing = formatAngle(raw)
+      drawing = formatAngle(raw, state.precision)
       scaled = drawing
     } else if (geometry.type === 'arc') {
       const raw = arcLengthFromPoints(
@@ -328,28 +319,22 @@ export function useCadApp() {
         pointOf(geometry.end),
         geometry.through ? pointOf(geometry.through) : undefined,
       )
-      drawing = unscaledLength(raw)
-      scaled = formatLength(raw)
+      drawing = formatLength(raw, displayOptions(false))
+      scaled = formatShownLength(raw)
     } else {
-      drawing = `${formatNumber(geometry.position.x, state.precision)}, ${formatNumber(geometry.position.y, state.precision)}`
+      drawing = formatPoint(geometry.position.x, geometry.position.y, state.precision)
       scaled = drawing
     }
-    const copyText = state.scale === 1 || geometry.type === 'angle' || geometry.type === 'point'
-      ? `${kind}  ${scaled}`
-      : `${kind}  ${translate('measure.drawing')} ${drawing}  ${translate('measure.scaled')} 1:${state.scale} ${scaled}`
+    const copyText = formatMeasurementCopy(
+      kind,
+      geometry.type,
+      drawing,
+      scaled,
+      state.scale,
+      translate('measure.drawing'),
+      translate('measure.scaled'),
+    )
     return { drawing, scaled, copyText }
-  }
-
-  function unscaledLength(raw: number): string {
-    const shown = convertLength(raw, drawingUnits(), targetUnit())
-    const symbol = unitSymbol(targetUnit())
-    return symbol ? `${formatNumber(shown, state.precision)} ${symbol}` : formatNumber(shown, state.precision)
-  }
-
-  function unscaledArea(raw: number): string {
-    const shown = convertArea(raw, drawingUnits(), targetUnit())
-    const symbol = unitSymbol(targetUnit())
-    return symbol ? `${formatNumber(shown, state.precision)} ${symbol}²` : formatNumber(shown, state.precision)
   }
 
   function unbindLayers(): void {
@@ -452,7 +437,11 @@ export function useCadApp() {
       state.properties = []
       return
     }
-    state.properties = describeEntity(entity, unscaledLength, unscaledArea)
+    state.properties = describeEntity(
+      entity,
+      (value) => formatLength(value, displayOptions(false)),
+      (value) => formatArea(value, displayOptions(false)),
+    )
   }
 
   function syncViewerUnits(): void {

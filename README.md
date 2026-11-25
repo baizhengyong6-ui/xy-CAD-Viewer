@@ -26,9 +26,9 @@
 - 图层显示/隐藏放在顶部工具栏的图层菜单里；模型空间与图纸空间布局切换。
 - 多张图纸用顶部标签同时打开。切换标签会回到该图纸的视图、图层和测量；关掉标签会释放这块图纸。已经打开的文件再打开一次，会切到原来的标签。手机上同时最多 3 张，桌面最多 8 张。
 - 左侧是最近打开的图纸（文件名和时间），可以收回。窄屏时它变成抽屉，把画面留给图纸。
-- 测量：距离、多边形面积、三点角度、弧长。捕捉端点、中点、圆心、交点、最近点、垂足和象限点。工具栏可以开关捕捉和每一种类型，F3 切换，按住 Shift 暂时关闭。手机上孔径更大，并有放大镜和偏移十字光标。
-- 快捷键：Ctrl/⌘+O 打开，S 示例，R 最近文件，F 全图，+/- 缩放，P 平移，D/A/N/L 距离、面积、角度、弧长，Shift+C 清除，Ctrl/⌘+E 导出 PNG，Ctrl/⌘+Shift+E 导出 PDF。按钮上标着单键，`?` 或「快捷键」打开完整列表。输入框和已有内容的命令行里不触发；测量取点时 F、+/-、F3 仍然可用。
-- 单位（跟随图纸、毫米、厘米、米、英寸、英尺）、小数位，以及图面比例（1:1、1:10 等）。结果可复制。
+- 测量：距离、多边形面积、三点角度、弧长。捕捉端点、中点、圆心、交点、最近点、垂足和象限点。工具栏可以开关捕捉和每一种类型，F3 切换，按住 Shift 暂时关闭。鼠标孔径是 10 CSS 像素，粗指针（触屏）是 24 CSS 像素。触屏测量时长按约半秒：十字光标在指尖上方，旁边有放大镜。
+- 快捷键：Ctrl/⌘+O 打开，S 示例，R 最近文件，F 全图，+ 和 - 缩放，P 平移，D/A/N/L 距离、面积、角度、弧长，Shift+C 清除，Ctrl/⌘+E 导出 PNG，Ctrl/⌘+Shift+E 导出 PDF，F3 开关捕捉，Esc 取消当前操作或关闭面板。按钮上标着单键，`?` 或「快捷键」打开完整列表。输入框和已有内容的命令行里不触发；测量取点时 F、+、-、F3 和 Esc 仍然可用。
+- 单位：跟随图纸、毫米、厘米、米、英寸、英尺。小数位可选 0 到 4。图面比例预设 1:1、1:10、1:50、1:100、1:200，也可以填一个大于 0 的倍数。长度乘这个倍数，面积乘倍数的平方；角度显示成 0°–180° 的夹角，不乘比例。结果可复制。比例不是 1 时，距离、面积和弧长的复制文本会同时带上图面值和按比例的值；角度和坐标只复制一份。
 - 点选图元查看类型、图层、长度或半径。
 - 中文回退字体：打包 Noto Sans SC 的 GB2312 子集（SIL OFL），离线可用。
 - 导出当前视图 PNG（含测量标注）；PDF 把同一张图排进 A4。
@@ -80,7 +80,7 @@ npm run tauri build -- --runner cargo-xwin --target x86_64-pc-windows-msvc --bun
 
 壳是 Capacitor 8，工程在 `android/`。应用 id 是 `com.xinyao.cadviewer`，桌面名称是「鑫垚CAD看图」，`minSdk` 是 26（WebView 需要能跑 WebGL2 和 WASM）。页面、worker、LibreDWG wasm 和字体都打进 APK，不访问网络。系统「打开」和「分享」进来的 `content://` 会先复制到应用缓存，再交给 `window.openCadFile`。微信、QQ 和文件管理器经常把 DWG/DXF 标成 `application/octet-stream`，原生层按文件名后缀判断，不是图纸就丢掉。
 
-手机上双指缩放、单指平移。测量时长按约半秒：十字光标在指尖上方，旁边有放大镜，对象捕捉半径比桌面更大。单张图纸超过 96 MB 会提示内存不够，不会硬撑到 WebView 崩溃。PNG 和 PDF 走系统分享面板，可以保存或发给其他应用。
+手机上双指缩放、单指平移。测量时长按约半秒：十字光标在指尖上方，旁边有放大镜。对象捕捉半径是 24 CSS 像素，桌面是 10。单张图纸超过 96 MB 会提示内存不够，不会硬撑到 WebView 崩溃。PNG 和 PDF 走系统分享面板，可以保存或发给其他应用。
 
 ```bash
 npm install
@@ -150,10 +150,12 @@ HAP 必须用华为开发者证书签名才能装到真机。测试可以在 Dev
 其他命令：
 
 ```bash
-npm test          # 测量公式
+npm test          # 单元测试：测量计算与单位格式、特性、对象捕捉、快捷键、标签、版本号
 npm run test:e2e  # Playwright：打开示例并测量 100 单位距离
 npm run samples   # 用 ezdxf 重新生成 DXF；若 PATH 里有 dxf2dwg 则同时写 DWG
 ```
+
+`.github/workflows/desktop.yml` 的 windows、macos 作业，以及 `.github/workflows/mobile.yml` 的 android 作业，会在打安装包之前运行 `npm test`。HarmonyOS 仍然没有 GitHub Actions 作业。
 
 DWG 解析跑在 Web Worker 里。`npm run dev` / `npm run build` 会把 `libredwg-web.wasm` 和 worker 复制到 `public/workers`，再随静态目录发布。不要用 `file://` 直接打开 `index.html`：worker 和 wasm 需要 http(s) 或外壳自己的资源协议。
 
@@ -178,7 +180,8 @@ src/
   dwg/types.ts            可替换的 DWG 解析器接口
   dwg/libredwg.ts         默认实现：@mlightcad/libredwg-converter（GPL-3.0）
   dwg/active.ts           当前启用哪一个解析器
-  measure/math.ts         距离、面积、角度、弧长、单位和比例（有单测）
+  measure/math.ts         距离、面积、角度、弧长、单位换算（有单测）
+  measure/format.ts       测量结果的单位、小数位、比例和复制文本（有单测）
   viewer/                  特性、PNG/PDF
   shell/                  window.openCadFile；Tauri、Android、HarmonyOS 各自读文件
   i18n/                   zh-CN 与 en
